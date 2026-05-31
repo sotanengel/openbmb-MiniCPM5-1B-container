@@ -22,3 +22,35 @@ class ConversationState:
 
     def clear(self) -> None:
         self.messages.clear()
+
+    def messages_snapshot(self) -> list[dict[str, str]]:
+        """Return a shallow copy of messages for read-only request building."""
+        return list(self.messages)
+
+    def rollback_last_message(self) -> None:
+        """Remove the most recently appended message."""
+        if self.messages:
+            self.messages.pop()
+
+    def user_turn_index(self) -> int:
+        """Index of the user message that started the current turn."""
+        return len(self.messages) - 1
+
+    def has_tool_results_since(self, index: int) -> bool:
+        """True if a tool message exists after the message at index."""
+        for message in self.messages[index + 1 :]:
+            if message.get("role") == "tool":
+                return True
+        return False
+
+    def latest_tool_result_fallback(self, max_chars: int) -> str:
+        """Use recent tool output when the model returns an empty final message."""
+        for message in reversed(self.messages):
+            if message.get("role") != "tool":
+                continue
+            content = message.get("content", "").strip()
+            if content and not content.lower().startswith("error:"):
+                if len(content) > max_chars:
+                    return content[:max_chars] + "…"
+                return content
+        return ""

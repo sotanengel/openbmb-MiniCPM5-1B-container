@@ -11,8 +11,6 @@ from minicpm_container.tools.registry import get_tool_schemas
 
 
 def test_should_nudge_for_prose_tool_intent() -> None:
-    from minicpm_container.agent import _has_tool_results_for_turn
-
     schemas = get_tool_schemas(("calculate",))
     assert schemas is not None
     state = ConversationState()
@@ -40,7 +38,7 @@ def test_should_nudge_for_prose_tool_intent() -> None:
         ("calculate",),
         user_turn_index,
     )
-    assert _has_tool_results_for_turn(state, user_turn_index)
+    assert state.has_tool_results_since(user_turn_index)
 
 
 def test_should_not_nudge_for_unrelated_prose_with_tools_enabled() -> None:

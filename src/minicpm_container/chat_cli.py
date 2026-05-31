@@ -15,6 +15,9 @@ HELP_TEXT = """Commands:
   /exit   Exit the chat session
   /clear  Clear conversation history
   /help   Show this help message
+
+Response language is configured at login (response_language).
+Use auto to follow the language of each user message.
 """
 
 

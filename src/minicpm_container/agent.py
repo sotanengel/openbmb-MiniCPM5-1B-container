@@ -21,6 +21,7 @@ def run_agent_turn(
 ) -> str:
     """Process one user message, running tool rounds until completion."""
     state.add_user_message(user_text)
+    user_turn_index = len(state.messages) - 1
     tool_schemas = get_tool_schemas(config.enabled_tools)
     if not tool_schemas:
         return _single_shot(client, config, state)
@@ -37,15 +38,16 @@ def run_agent_turn(
         raw_content = response.content
         parsed = parse_tool_calls(raw_content, tool_schemas)
         if not parsed.calls:
-            if not nudge_used and _should_nudge_for_tool_call(raw_content, tool_schemas):
+            if not nudge_used and _should_nudge_for_tool_call(
+                raw_content,
+                tool_schemas,
+                state,
+                config.enabled_tools,
+                user_turn_index,
+            ):
                 nudge_used = True
                 state.add_assistant_message(raw_content)
-                state.add_user_message(
-                    "Emit the required tool call as XML "
-                    '(<function name="..."><param name="...">...</param></function>) '
-                    'or JSON ({"name":"...","arguments":{...}}). '
-                    "Do not explain; output only the tool call."
-                )
+                state.add_user_message(_tool_call_nudge_message(config.enabled_tools))
                 continue
             final_text = parsed.normal_text or raw_content.strip()
             if not final_text:
@@ -70,18 +72,52 @@ def run_agent_turn(
     return final_text or fallback or "(tool round limit reached)"
 
 
+def _has_tool_results_for_turn(state: ConversationState, user_turn_index: int) -> bool:
+    """True if a tool message exists after the user message that started this turn."""
+    for message in state.messages[user_turn_index + 1 :]:
+        if message.get("role") == "tool":
+            return True
+    return False
+
+
 def _should_nudge_for_tool_call(
     content: str,
     tool_schemas: list[dict],
+    state: ConversationState,
+    enabled_tools: tuple[str, ...],
+    user_turn_index: int,
 ) -> bool:
-    """Detect prose-only tool intent so we can retry once with an explicit tool payload."""
+    """Retry once when tools are enabled but the model answered without calling them."""
     if parse_tool_calls(content, tool_schemas).calls:
         return False
-    lowered = content.lower()
+    if _has_tool_results_for_turn(state, user_turn_index):
+        return False
     if "<function" in content or "<tool_call>" in content or '"name"' in content:
         return False
-    hints = ("tool", "calculate", "web_search", "function call", "xml", "json")
-    return any(hint in lowered for hint in hints)
+    return bool(enabled_tools)
+
+
+def _tool_call_nudge_message(enabled_tools: tuple[str, ...]) -> str:
+    if "web_search" in enabled_tools:
+        return (
+            'Call web_search now. JSON example: '
+            '{"name":"web_search","arguments":{"query":"USER_TOPIC"}}. '
+            "Replace USER_TOPIC with the search terms from the user's question. "
+            "Do not answer from memory; output only the tool call."
+        )
+    if len(enabled_tools) == 1:
+        tool_id = enabled_tools[0]
+        return (
+            f'Call {tool_id} now as XML '
+            f'(<function name="{tool_id}"><param name="...">...</param></function>) '
+            "or JSON. Do not explain; output only the tool call."
+        )
+    return (
+        "Emit the required tool call as XML "
+        '(<function name="..."><param name="...">...</param></function>) '
+        'or JSON ({"name":"...","arguments":{...}}). '
+        "Do not explain; output only the tool call."
+    )
 
 
 def _single_shot(

@@ -11,13 +11,36 @@ from minicpm_container.tools.registry import get_tool_schemas
 
 
 def test_should_nudge_for_prose_tool_intent() -> None:
+    from minicpm_container.agent import _has_tool_results_for_turn
+
     schemas = get_tool_schemas(("calculate",))
     assert schemas is not None
-    assert _should_nudge_for_tool_call("I will use the calculate tool.", schemas)
+    state = ConversationState()
+    state.add_user_message("What is 17 times 23?")
+    user_turn_index = 0
+    assert _should_nudge_for_tool_call(
+        "I will use the calculate tool.",
+        schemas,
+        state,
+        ("calculate",),
+        user_turn_index,
+    )
     assert not _should_nudge_for_tool_call(
         '<function name="calculate"></function>',
         schemas,
+        state,
+        ("calculate",),
+        user_turn_index,
     )
+    state.add_tool_message("calculate: 391")
+    assert not _should_nudge_for_tool_call(
+        "The answer is 391.",
+        schemas,
+        state,
+        ("calculate",),
+        user_turn_index,
+    )
+    assert _has_tool_results_for_turn(state, user_turn_index)
 
 
 def test_agent_nudge_then_executes_tool() -> None:

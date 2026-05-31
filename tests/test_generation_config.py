@@ -153,6 +153,15 @@ def test_prompt_generation_config_accepts_custom_values() -> None:
     assert config.response_language == "en"
 
 
+def test_prompt_generation_config_disables_thinking_when_tools_enabled(capsys) -> None:
+    with patch("builtins.input", side_effect=["", "", "", "", "", ""]):
+        config = prompt_generation_config(enabled_tools=("web_search",))
+    assert config.enable_thinking is False
+    assert config.enabled_tools == ("web_search",)
+    captured = capsys.readouterr().out
+    assert "固定" in captured
+
+
 def test_prompt_generation_config_retries_invalid_input() -> None:
     with patch(
         "builtins.input",

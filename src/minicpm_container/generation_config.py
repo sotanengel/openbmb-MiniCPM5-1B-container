@@ -232,15 +232,29 @@ def prompt_generation_config(
     if prompt_tools:
         resolved_tools = _prompt_enabled_tools(resolved_tools)
 
+    max_new_tokens = _prompt_int("max_new_tokens", DEFAULT_MAX_NEW_TOKENS, 1, MAX_NEW_TOKENS)
+    if resolved_tools:
+        print(
+            "  enable_thinking [no]: ツール利用時は安定性のため no に固定 "
+            "(思考モードはツール呼び出しを妨げやすいです)。"
+        )
+        enable_thinking = False
+    else:
+        enable_thinking = _prompt_bool("enable_thinking", False)
+    do_sample = _prompt_bool("do_sample", DEFAULT_DO_SAMPLE)
+    temperature = _prompt_float(
+        "temperature", DEFAULT_TEMPERATURE, MIN_TEMPERATURE, MAX_TEMPERATURE
+    )
+    top_p = _prompt_float("top_p", DEFAULT_TOP_P, MIN_TOP_P, MAX_TOP_P)
+    response_language = _prompt_response_language(default_response_language)
+
     config = GenerationConfig(
-        max_new_tokens=_prompt_int("max_new_tokens", DEFAULT_MAX_NEW_TOKENS, 1, MAX_NEW_TOKENS),
-        enable_thinking=_prompt_bool("enable_thinking", False),
-        do_sample=_prompt_bool("do_sample", DEFAULT_DO_SAMPLE),
-        temperature=_prompt_float(
-            "temperature", DEFAULT_TEMPERATURE, MIN_TEMPERATURE, MAX_TEMPERATURE
-        ),
-        top_p=_prompt_float("top_p", DEFAULT_TOP_P, MIN_TOP_P, MAX_TOP_P),
-        response_language=_prompt_response_language(default_response_language),
+        max_new_tokens=max_new_tokens,
+        enable_thinking=enable_thinking,
+        do_sample=do_sample,
+        temperature=temperature,
+        top_p=top_p,
+        response_language=response_language,
         enabled_tools=resolved_tools,
     )
     config.validate()

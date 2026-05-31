@@ -1,0 +1,11 @@
+# syntax=docker/dockerfile:1
+# Incremental sync: apply source changes on top of an existing runtime image.
+FROM minicpm5-1b-chat:latest
+
+USER root
+WORKDIR /app
+COPY pyproject.toml README.md ./
+COPY src ./src
+RUN pip install -e .
+
+USER model

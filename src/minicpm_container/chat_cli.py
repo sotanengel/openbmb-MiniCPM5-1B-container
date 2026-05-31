@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 
+from minicpm_container.agent import run_agent_turn
 from minicpm_container.generation_config import GenerationConfig
 from minicpm_container.protocol import (
     ConversationState,
@@ -11,6 +12,7 @@ from minicpm_container.protocol import (
     ProtocolError,
     sanitize_message_content,
 )
+from minicpm_container.tools.registry import format_tools_help
 
 HELP_TEXT = """Commands:
   /exit   Exit the chat session
@@ -19,6 +21,7 @@ HELP_TEXT = """Commands:
 
 Response language is configured at login (response_language).
 Use auto to follow the language of each user message.
+Tools are configured at login (--tools or enabled_tools prompt).
 """
 
 
@@ -37,6 +40,10 @@ def run_chat_loop(
 
     print("MiniCPM5-1B secure chat. Type /help for commands.")
     print(f"Generation settings: {session_config.summary()}")
+    if session_config.enabled_tools:
+        print(f"Enabled tools: {', '.join(session_config.enabled_tools)}")
+    else:
+        print("Enabled tools: none")
     while True:
         try:
             user_input = input("You> ").strip()
@@ -60,27 +67,25 @@ def run_chat_loop(
                 continue
             if command == "/help":
                 print(HELP_TEXT.rstrip())
+                if session_config.enabled_tools:
+                    print()
+                    print(format_tools_help())
                 continue
             print(f"Unknown command: {user_input}. Type /help for available commands.")
             continue
 
-        state.add_user_message(user_input)
-        request = session_config.to_chat_request(list(state.messages))
-
         try:
-            response = model_client.send(request)
+            assistant_text = run_agent_turn(
+                model_client,
+                session_config,
+                state,
+                user_input,
+            )
         except (ProtocolError, OSError) as exc:
             print(f"Error: {exc}", file=sys.stderr)
-            state.messages.pop()
             continue
 
-        if response.error:
-            print(f"Model error: {response.error}", file=sys.stderr)
-            state.messages.pop()
-            continue
-
-        print(f"Assistant> {response.content}")
-        state.add_assistant_message(response.content)
+        print(f"Assistant> {assistant_text}")
 
 
 def main() -> None:

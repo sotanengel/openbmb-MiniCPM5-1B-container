@@ -49,13 +49,18 @@ class ModelEngine:
             return ChatResponse(content="", error="model not loaded")
 
         try:
+            template_kwargs: dict[str, object] = {
+                "enable_thinking": request.enable_thinking,
+            }
+            if request.tools:
+                template_kwargs["tools"] = request.tools
             inputs = self._tokenizer.apply_chat_template(
                 request.messages,
                 tokenize=True,
                 add_generation_prompt=True,
-                enable_thinking=request.enable_thinking,
                 return_dict=True,
                 return_tensors="pt",
+                **template_kwargs,
             )
             inputs = inputs.to(self._model.device)
             outputs = self._model.generate(

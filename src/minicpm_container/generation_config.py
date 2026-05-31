@@ -25,6 +25,12 @@ from minicpm_container.system_prompt import (
     build_system_message,
     validate_response_language,
 )
+from minicpm_container.tools.registry import (
+    ALL_TOOL_IDS,
+    format_tools_help,
+    get_tool_schemas,
+    parse_enabled_tools,
+)
 
 RESPONSE_LANGUAGE_ENV = "CHAT_RESPONSE_LANGUAGE"
 
@@ -61,6 +67,9 @@ def format_generation_settings_help() -> str:
         ),
         "",
         f"  （参考）会話上限: メッセージ数 {MAX_MESSAGES}、1メッセージ {MAX_MESSAGE_CHARS} 文字",
+        "",
+        "  enabled_tools — 有効化するツール ID（カンマ区切り、none で無効）",
+        f"    デフォルト: none  利用可能: {', '.join(sorted(ALL_TOOL_IDS))}",
         "",
     ]
     return "\n".join(lines)
@@ -150,6 +159,7 @@ class GenerationConfig:
     temperature: float = DEFAULT_TEMPERATURE
     top_p: float = DEFAULT_TOP_P
     response_language: str = RESPONSE_LANGUAGE_AUTO
+    enabled_tools: tuple[str, ...] = ()
 
     @classmethod
     def defaults(cls) -> GenerationConfig:
@@ -175,6 +185,7 @@ class GenerationConfig:
             do_sample=self.do_sample,
             temperature=self.temperature,
             top_p=self.top_p,
+            tools=get_tool_schemas(self.enabled_tools),
         )
 
     def summary(self) -> str:
@@ -184,14 +195,40 @@ class GenerationConfig:
             f"do_sample={str(self.do_sample).lower()}, "
             f"temperature={self.temperature}, "
             f"top_p={self.top_p}, "
-            f"response_language={self.response_language}"
+            f"response_language={self.response_language}, "
+            f"enabled_tools={','.join(self.enabled_tools) if self.enabled_tools else 'none'}"
         )
 
 
-def prompt_generation_config() -> GenerationConfig:
+def _prompt_enabled_tools(default: tuple[str, ...]) -> tuple[str, ...]:
+    default_label = ",".join(default) if default else "none"
+    supported = ", ".join(sorted(ALL_TOOL_IDS))
+    while True:
+        raw = input(f"  enabled_tools [{default_label}]: ")
+        if not raw.strip():
+            return default
+        try:
+            return parse_enabled_tools(raw)
+        except ValueError as exc:
+            print(f"  {exc}")
+            print(f"  利用可能: {supported}")
+
+
+def prompt_generation_config(
+    *,
+    enabled_tools: tuple[str, ...] | None = None,
+    prompt_tools: bool = False,
+) -> GenerationConfig:
     print("\nパスワード認証に成功しました。")
     print_generation_settings_help()
     default_response_language = _load_default_response_language()
+    if enabled_tools is None:
+        resolved_tools: tuple[str, ...] = ()
+    else:
+        resolved_tools = enabled_tools
+    if prompt_tools:
+        resolved_tools = _prompt_enabled_tools(resolved_tools)
+
     config = GenerationConfig(
         max_new_tokens=_prompt_int("max_new_tokens", DEFAULT_MAX_NEW_TOKENS, 1, MAX_NEW_TOKENS),
         enable_thinking=_prompt_bool("enable_thinking", False),
@@ -201,7 +238,11 @@ def prompt_generation_config() -> GenerationConfig:
         ),
         top_p=_prompt_float("top_p", DEFAULT_TOP_P, MIN_TOP_P, MAX_TOP_P),
         response_language=_prompt_response_language(default_response_language),
+        enabled_tools=resolved_tools,
     )
     config.validate()
     print(f"\n設定: {config.summary()}\n")
+    if config.enabled_tools:
+        print(format_tools_help())
+        print()
     return config

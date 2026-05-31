@@ -31,6 +31,9 @@ def sanitize_message_content(content: str) -> str:
     )
 
 
+ALLOWED_MESSAGE_ROLES = frozenset({"user", "assistant", "system", "tool"})
+
+
 @dataclass
 class ChatRequest:
     messages: list[dict[str, str]]
@@ -39,19 +42,20 @@ class ChatRequest:
     do_sample: bool = DEFAULT_DO_SAMPLE
     temperature: float = DEFAULT_TEMPERATURE
     top_p: float = DEFAULT_TOP_P
+    tools: list[dict[str, Any]] | None = None
 
     def to_json(self) -> str:
-        return json.dumps(
-            {
-                "messages": self.messages,
-                "max_new_tokens": self.max_new_tokens,
-                "enable_thinking": self.enable_thinking,
-                "do_sample": self.do_sample,
-                "temperature": self.temperature,
-                "top_p": self.top_p,
-            },
-            ensure_ascii=False,
-        )
+        payload: dict[str, Any] = {
+            "messages": self.messages,
+            "max_new_tokens": self.max_new_tokens,
+            "enable_thinking": self.enable_thinking,
+            "do_sample": self.do_sample,
+            "temperature": self.temperature,
+            "top_p": self.top_p,
+        }
+        if self.tools is not None:
+            payload["tools"] = self.tools
+        return json.dumps(payload, ensure_ascii=False)
 
     @classmethod
     def from_json(cls, payload: str) -> ChatRequest:
@@ -79,7 +83,7 @@ class ChatRequest:
                 raise ProtocolError(f"message at index {index} must be an object")
             role = message.get("role")
             content = message.get("content")
-            if role not in {"user", "assistant", "system"}:
+            if role not in ALLOWED_MESSAGE_ROLES:
                 raise ProtocolError(f"invalid role at index {index}: {role!r}")
             if not isinstance(content, str) or not content.strip():
                 raise ProtocolError(f"content at index {index} must be a non-empty string")
@@ -119,6 +123,17 @@ class ChatRequest:
         if top_p < MIN_TOP_P or top_p > MAX_TOP_P:
             raise ProtocolError(f"top_p must be between {MIN_TOP_P} and {MAX_TOP_P}")
 
+        tools = data.get("tools")
+        normalized_tools: list[dict[str, Any]] | None = None
+        if tools is not None:
+            if not isinstance(tools, list) or not tools:
+                raise ProtocolError("tools must be a non-empty list when provided")
+            normalized_tools = []
+            for index, tool in enumerate(tools):
+                if not isinstance(tool, dict):
+                    raise ProtocolError(f"tool at index {index} must be an object")
+                normalized_tools.append(tool)
+
         return cls(
             messages=normalized,
             max_new_tokens=max_new_tokens,
@@ -126,6 +141,7 @@ class ChatRequest:
             do_sample=do_sample,
             temperature=temperature,
             top_p=top_p,
+            tools=normalized_tools,
         )
 
 
@@ -196,6 +212,9 @@ class ConversationState:
 
     def add_assistant_message(self, content: str) -> None:
         self.messages.append({"role": "assistant", "content": sanitize_message_content(content)})
+
+    def add_tool_message(self, content: str) -> None:
+        self.messages.append({"role": "tool", "content": sanitize_message_content(content)})
 
     def clear(self) -> None:
         self.messages.clear()

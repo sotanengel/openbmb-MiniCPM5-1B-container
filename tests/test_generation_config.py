@@ -63,6 +63,7 @@ def test_generation_config_to_chat_request() -> None:
         do_sample=False,
         temperature=0.5,
         top_p=0.8,
+        enabled_tools=("calculate",),
     )
     request = config.to_chat_request([{"role": "user", "content": "hello"}])
     assert request.max_new_tokens == 256
@@ -70,6 +71,8 @@ def test_generation_config_to_chat_request() -> None:
     assert request.do_sample is False
     assert request.temperature == 0.5
     assert request.top_p == 0.8
+    assert request.tools is not None
+    assert request.tools[0]["function"]["name"] == "calculate"
     assert request.messages[0]["role"] == "system"
     assert request.messages[1] == {"role": "user", "content": "hello"}
 
@@ -93,6 +96,7 @@ def test_format_generation_settings_help_includes_defaults_and_ranges() -> None:
     help_text = format_generation_settings_help()
     assert "max_new_tokens" in help_text
     assert "enable_thinking" in help_text
+    assert "enabled_tools" in help_text
     assert "do_sample" in help_text
     assert "temperature" in help_text
     assert "top_p" in help_text

@@ -6,12 +6,43 @@ CONTAINER_NAME="${CONTAINER_NAME:-minicpm5-1b-chat}"
 
 cd "${ROOT_DIR}"
 
+USE_NETWORK=0
+CHAT_LOGIN_ARGS=()
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --network)
+      USE_NETWORK=1
+      shift
+      ;;
+    --)
+      shift
+      CHAT_LOGIN_ARGS=("$@")
+      break
+      ;;
+    *)
+      CHAT_LOGIN_ARGS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+if [ "${MINICPM_NETWORK:-0}" = "1" ]; then
+  USE_NETWORK=1
+fi
+
+COMPOSE_FILES=(-f docker-compose.yml)
+if [ "${USE_NETWORK}" -eq 1 ]; then
+  COMPOSE_FILES+=(-f docker-compose.network.yml)
+  echo "Starting with network egress enabled (http_get / web_search)."
+fi
+
 if ! docker image inspect minicpm5-1b-chat:latest >/dev/null 2>&1; then
   echo "Image minicpm5-1b-chat:latest not found. Run ./scripts/build.sh first." >&2
   exit 1
 fi
 
-docker compose up -d
+docker compose "${COMPOSE_FILES[@]}" up -d
 
 ready=0
 while [ "${ready}" -lt 600 ]; do
@@ -28,8 +59,15 @@ if ! docker exec "${CONTAINER_NAME}" test -S /run/model.sock 2>/dev/null; then
 fi
 
 echo "Container is ready. Starting secure chat session..."
+EXEC_ENV=(
+  -e LANG=C.UTF-8
+  -e LC_ALL=C.UTF-8
+  -e PYTHONIOENCODING=utf-8
+)
+if [ "${USE_NETWORK}" -eq 1 ]; then
+  EXEC_ENV+=(-e CHAT_NETWORK_ENABLED=1)
+fi
+
 exec docker exec -u chat -it \
-  -e LANG=C.UTF-8 \
-  -e LC_ALL=C.UTF-8 \
-  -e PYTHONIOENCODING=utf-8 \
-  "${CONTAINER_NAME}" chat-login
+  "${EXEC_ENV[@]}" \
+  "${CONTAINER_NAME}" chat-login "${CHAT_LOGIN_ARGS[@]}"

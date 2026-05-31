@@ -19,11 +19,13 @@ def test_chat_request_roundtrip() -> None:
     request = ChatRequest(
         messages=[{"role": "user", "content": "Hello"}],
         max_new_tokens=64,
+        tools=[{"type": "function", "function": {"name": "calculate", "parameters": {}}}],
     )
     restored = ChatRequest.from_json(request.to_json())
     assert restored.messages == request.messages
     assert restored.max_new_tokens == 64
     assert restored.enable_thinking is False
+    assert restored.tools == request.tools
 
 
 def test_chat_request_rejects_empty_messages() -> None:
@@ -31,9 +33,14 @@ def test_chat_request_rejects_empty_messages() -> None:
         ChatRequest.from_dict({"messages": []})
 
 
+def test_chat_request_accepts_tool_role() -> None:
+    request = ChatRequest.from_dict({"messages": [{"role": "tool", "content": "result"}]})
+    assert request.messages[0]["role"] == "tool"
+
+
 def test_chat_request_rejects_invalid_role() -> None:
     with pytest.raises(ProtocolError, match="invalid role"):
-        ChatRequest.from_dict({"messages": [{"role": "tool", "content": "x"}]})
+        ChatRequest.from_dict({"messages": [{"role": "function", "content": "x"}]})
 
 
 def test_chat_request_rejects_oversized_content() -> None:

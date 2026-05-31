@@ -77,10 +77,11 @@ def test_main_runs_login_flow_with_generation_config() -> None:
             return_value=config,
         ) as prompt,
         patch("minicpm_container.chat_cli.run_chat_loop") as run_chat,
+        patch("minicpm_container.login_cli.warn_if_network_tools_without_egress"),
     ):
         from minicpm_container.auth import main
 
-        main()
+        main(["--tools", "calculate"])
 
-    prompt.assert_called_once()
+    prompt.assert_called_once_with(enabled_tools=("calculate",), prompt_tools=False)
     run_chat.assert_called_once_with(config=config)

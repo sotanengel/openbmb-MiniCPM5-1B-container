@@ -8,6 +8,7 @@
 - モデル推論プロセス（`model` ユーザー）と対話 CLI（`chat` ユーザー）を分離
 - Unix ソケット経由の JSON プロトコル（HTTP/API サーバーなし）
 - パスワード認証後のみ CLI 対話を開始
+- オプションで [MiniCPM5 ツール呼び出し](https://huggingface.co/openbmb/MiniCPM5-1B)（ホワイトリストのみ、`--tools` で指定）
 
 ## 前提
 
@@ -42,6 +43,29 @@ CHAT_PASSWORD='your-secret' ./scripts/build.sh
 |------|------|
 | `response_language` | 応答言語。`auto`（デフォルト）でユーザー入力言語に追従。`ja` / `en` 等で固定も可 |
 | 環境変数 `CHAT_RESPONSE_LANGUAGE` | ログイン時プロンプトのデフォルト値（例: `ja`） |
+| `enabled_tools` | 有効ツール ID（カンマ区切り）。省略時は `none`（ツール無効） |
+| 環境変数 `CHAT_TOOLS` | ログイン引数 `--tools` 未指定時のデフォルト（例: `calculate,count_text`） |
+
+### ツール（`--tools`）
+
+デフォルトではツールは無効です。ログイン時に有効化します。
+
+```bash
+# ローカル安全ツールのみ（オフラインのまま）
+./scripts/run.sh -- --tools calculate,current_datetime
+
+# HTTP ツール（GET のみ）— ネットワーク override が必要
+./scripts/run.sh --network -- --tools http_get,web_search
+```
+
+| ID | 種別 | 説明 |
+|----|------|------|
+| `calculate` | ローカル | 安全な四則演算式の評価 |
+| `current_datetime` | ローカル | UTC 現在時刻（ISO 8601） |
+| `count_text` | ローカル | 文字数・単語数・行数 |
+| `convert_units` | ローカル | 長さ・質量・温度・バイト換算 |
+| `http_get` | ネットワーク | URL を **GET のみ**で取得（SSRF 対策あり） |
+| `web_search` | ネットワーク | DuckDuckGo HTML へ **GET のみ**で検索 |
 
 | コマンド | 説明 |
 |---------|------|
@@ -83,17 +107,19 @@ pre-commit run --all-files
 ### 推論の制限
 
 - `trust_remote_code=False`（任意コード実行を禁止）
-- tool calling 無効
+- ツールは **ホワイトリストのみ**（デフォルト無効、`--tools` で明示有効化）
+- ツール実行は **GET のみ**・SSRF ブロック・レスポンスサイズ上限（HTTP ツール）
 - メッセージ数・文字数・ `max_new_tokens` に上限
 - 平文パスワードはイメージに含めず、bcrypt ハッシュのみ埋め込み
 
 ### セキュリティチェックリスト
 
-- [x] 実行時ネットワーク遮断（`network_mode: none`）
+- [x] デフォルトは実行時ネットワーク遮断（`network_mode: none`）
+- [x] HTTP ツールは `docker-compose.network.yml` / `--network` で明示的に egress を許可
 - [x] `chat` ユーザーは `/models` を読めない（`chmod 750`, `model` 所有）
 - [x] root FS read-only
-- [x] HTTP リスナーなし
-- [x] tool calling / remote code 無効
+- [x] HTTP リスナーなし（外向きクライアントのみ、任意）
+- [x] ツール名ホワイトリスト・ラウンド上限・`trust_remote_code=False`
 - [x] 平文パスワードを git / イメージに含めない
 
 ## アーキテクチャ

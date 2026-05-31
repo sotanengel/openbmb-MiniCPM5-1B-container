@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -63,3 +63,24 @@ def test_authenticate_fails_after_max_attempts() -> None:
         pytest.raises(AuthenticationError, match="too many failed"),
     ):
         authenticate(max_attempts=2)
+
+
+def test_main_runs_login_flow_with_generation_config() -> None:
+    password = "login-secret"
+    password_hash = hash_password(password)
+    config = MagicMock()
+    with (
+        patch.dict(os.environ, {"CHAT_PASSWORD_HASH": password_hash}, clear=True),
+        patch("minicpm_container.auth.getpass", return_value=password),
+        patch(
+            "minicpm_container.generation_config.prompt_generation_config",
+            return_value=config,
+        ) as prompt,
+        patch("minicpm_container.chat_cli.run_chat_loop") as run_chat,
+    ):
+        from minicpm_container.auth import main
+
+        main()
+
+    prompt.assert_called_once()
+    run_chat.assert_called_once_with(config=config)

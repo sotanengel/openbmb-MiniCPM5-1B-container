@@ -61,9 +61,9 @@ class ModelEngine:
             outputs = self._model.generate(
                 **inputs,
                 max_new_tokens=request.max_new_tokens,
-                do_sample=True,
-                temperature=0.7,
-                top_p=0.95,
+                do_sample=request.do_sample,
+                temperature=request.temperature,
+                top_p=request.top_p,
             )
             input_length = inputs["input_ids"].shape[-1]
             generated = outputs[0][input_length:]

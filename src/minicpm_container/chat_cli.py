@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import sys
 
 from minicpm_container.agent import run_agent_turn
@@ -25,14 +26,23 @@ Tools are configured at login (--tools or enabled_tools prompt).
 """
 
 
+def configure_stdio() -> None:
+    """Set UTF-8 on stdio when supported (no-op after stdin has been read)."""
+    for stream in (sys.stdin, sys.stdout):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (io.UnsupportedOperation, OSError, ValueError):
+            pass
+
+
 def run_chat_loop(
     client: ModelClient | None = None,
     config: GenerationConfig | None = None,
 ) -> None:
-    if hasattr(sys.stdin, "reconfigure"):
-        sys.stdin.reconfigure(encoding="utf-8", errors="replace")
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    configure_stdio()
 
     model_client = client or ModelClient()
     session_config = config or GenerationConfig.defaults()

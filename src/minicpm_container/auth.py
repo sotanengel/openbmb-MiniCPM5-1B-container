@@ -56,11 +56,14 @@ def authenticate(max_attempts: int = MAX_LOGIN_ATTEMPTS) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
+    from minicpm_container.chat_cli import configure_stdio
     from minicpm_container.login_cli import (
         build_login_parser,
         resolve_enabled_tools,
         warn_if_network_tools_without_egress,
     )
+
+    configure_stdio()
 
     parser = build_login_parser()
     args = parser.parse_args(argv)

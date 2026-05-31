@@ -9,7 +9,8 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    user: "1001:1002"
     tmpfs:
-      - /tmp
-      - /run
+      - /tmp:mode=1777
+      - /run:uid=1001,gid=1002,mode=775
     restart: unless-stopped

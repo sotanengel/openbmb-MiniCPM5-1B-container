@@ -13,14 +13,12 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 mkdir -p /run
-chown model:chat /run
-chmod 775 /run
 
-gosu model model-server &
+model-server &
 MODEL_PID=$!
 
 ready=0
-while [ "${ready}" -lt 60 ]; do
+while [ "${ready}" -lt 600 ]; do
   if [ -S /run/model.sock ]; then
     break
   fi

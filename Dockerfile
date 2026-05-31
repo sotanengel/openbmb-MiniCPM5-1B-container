@@ -45,12 +45,13 @@ ARG CHAT_PASSWORD_HASH
 ENV CHAT_PASSWORD_HASH=${CHAT_PASSWORD_HASH}
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends gosu \
+    && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 1001 model \
     && useradd --uid 1001 --gid model --system --shell /usr/sbin/nologin model \
     && groupadd --gid 1002 chat \
-    && useradd --uid 1002 --gid chat --system --shell /usr/sbin/nologin chat
+    && useradd --uid 1002 --gid chat --system --shell /usr/sbin/nologin chat \
+    && usermod -aG chat model
 
 COPY --from=builder /opt/venv /opt/venv
 COPY --from=builder /models /models
@@ -65,4 +66,5 @@ RUN chmod 755 /usr/local/bin/entrypoint.sh \
     && chmod 750 /models /models/MiniCPM5-1B
 
 WORKDIR /app
+USER model
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

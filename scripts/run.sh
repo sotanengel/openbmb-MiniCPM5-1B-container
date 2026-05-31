@@ -14,7 +14,7 @@ fi
 docker compose up -d
 
 ready=0
-while [ "${ready}" -lt 120 ]; do
+while [ "${ready}" -lt 600 ]; do
   if docker exec "${CONTAINER_NAME}" test -S /run/model.sock 2>/dev/null; then
     break
   fi

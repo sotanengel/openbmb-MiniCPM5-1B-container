@@ -28,4 +28,8 @@ if ! docker exec "${CONTAINER_NAME}" test -S /run/model.sock 2>/dev/null; then
 fi
 
 echo "Container is ready. Starting secure chat session..."
-exec docker exec -u chat -it "${CONTAINER_NAME}" chat-login
+exec docker exec -u chat -it \
+  -e LANG=C.UTF-8 \
+  -e LC_ALL=C.UTF-8 \
+  -e PYTHONIOENCODING=utf-8 \
+  "${CONTAINER_NAME}" chat-login

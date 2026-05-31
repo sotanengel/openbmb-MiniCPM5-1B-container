@@ -129,3 +129,30 @@ def test_chat_request_rejects_invalid_do_sample() -> None:
     }
     with pytest.raises(ProtocolError, match="do_sample"):
         ChatRequest.from_dict(payload)
+
+
+def test_sanitize_message_content_preserves_japanese() -> None:
+    from minicpm_container.protocol import sanitize_message_content
+
+    text = "名探偵コナンについて 解説して。"
+    assert sanitize_message_content(text) == text
+
+
+def test_sanitize_message_content_replaces_lone_surrogates() -> None:
+    from minicpm_container.protocol import sanitize_message_content
+
+    broken = "名探偵\ud800コナン"
+    assert sanitize_message_content(broken) == "名探偵\ufffdコナン"
+
+
+def test_chat_request_to_json_encodes_messages_with_surrogates() -> None:
+    request = ChatRequest.from_dict(
+        {"messages": [{"role": "user", "content": "名探偵\ud800コナン"}]}
+    )
+    request.to_json().encode("utf-8")
+
+
+def test_conversation_state_sanitizes_user_message() -> None:
+    state = ConversationState()
+    state.add_user_message("名探偵\ud800コナン")
+    assert state.messages[0]["content"] == "名探偵\ufffdコナン"

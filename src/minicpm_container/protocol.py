@@ -24,6 +24,13 @@ class ProtocolError(ValueError):
     """Raised when a request or response violates the protocol."""
 
 
+def sanitize_message_content(content: str) -> str:
+    """Return text that can be encoded as UTF-8 for the wire protocol."""
+    return "".join(
+        character if not (0xD800 <= ord(character) <= 0xDFFF) else "\ufffd" for character in content
+    )
+
+
 @dataclass
 class ChatRequest:
     messages: list[dict[str, str]]
@@ -80,7 +87,7 @@ class ChatRequest:
                 raise ProtocolError(
                     f"content at index {index} exceeds {MAX_MESSAGE_CHARS} characters"
                 )
-            normalized.append({"role": role, "content": content})
+            normalized.append({"role": role, "content": sanitize_message_content(content)})
 
         max_new_tokens = data.get("max_new_tokens", DEFAULT_MAX_NEW_TOKENS)
         if not isinstance(max_new_tokens, int) or max_new_tokens < 1:
@@ -185,10 +192,10 @@ class ConversationState:
     messages: list[dict[str, str]] = field(default_factory=list)
 
     def add_user_message(self, content: str) -> None:
-        self.messages.append({"role": "user", "content": content})
+        self.messages.append({"role": "user", "content": sanitize_message_content(content)})
 
     def add_assistant_message(self, content: str) -> None:
-        self.messages.append({"role": "assistant", "content": content})
+        self.messages.append({"role": "assistant", "content": sanitize_message_content(content)})
 
     def clear(self) -> None:
         self.messages.clear()

@@ -38,7 +38,5 @@ def build_system_message(response_language: str) -> dict[str, str] | None:
         content = AUTO_SYSTEM_PROMPT
     else:
         language_name = LANGUAGE_NAMES[language]
-        content = (
-            f"You are a helpful assistant. You must always respond in {language_name}."
-        )
+        content = f"You are a helpful assistant. You must always respond in {language_name}."
     return {"role": "system", "content": content}

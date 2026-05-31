@@ -208,13 +208,3 @@ def http_get(
             return body.decode(charset, errors="replace")
         except LookupError:
             return body.decode("utf-8", errors="replace")
-
-
-def web_search(
-    query: str,
-    *,
-    opener: urllib.request.OpenerDirector | None = None,
-) -> str:
-    from minicpm_container.tools.search_providers import run_web_search
-
-    return run_web_search(query, opener=opener)

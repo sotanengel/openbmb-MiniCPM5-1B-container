@@ -6,6 +6,7 @@ import json
 import os
 import re
 import urllib.parse
+import urllib.request
 from typing import Any
 
 from minicpm_container.tools.http_client import (
@@ -252,3 +253,12 @@ def run_web_search(
     if len(combined) > MAX_WEB_SEARCH_RESULT_CHARS:
         return combined[:MAX_WEB_SEARCH_RESULT_CHARS] + "…"
     return combined
+
+
+def web_search(
+    query: str,
+    *,
+    opener: urllib.request.OpenerDirector | None = None,
+) -> str:
+    """Public entry point for the web_search tool."""
+    return run_web_search(query, opener=opener)

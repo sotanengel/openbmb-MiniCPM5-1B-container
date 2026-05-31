@@ -79,7 +79,7 @@ def test_main_runs_login_flow_with_generation_config() -> None:
         patch("minicpm_container.chat_cli.run_chat_loop") as run_chat,
         patch("minicpm_container.login_cli.warn_if_network_tools_without_egress"),
     ):
-        from minicpm_container.auth import main
+        from minicpm_container.chat_login import main
 
         main(["--tools", "calculate"])
 

@@ -7,8 +7,9 @@ from typing import Any
 
 from minicpm_container.tools.calculate import safe_calculate
 from minicpm_container.tools.handlers.common import require_str
-from minicpm_container.tools.http_client import http_get, web_search
+from minicpm_container.tools.http_client import http_get
 from minicpm_container.tools.limits import MAX_TEXT_ARG_CHARS
+from minicpm_container.tools.search_providers import web_search
 
 
 def handle_calculate(arguments: dict[str, Any]) -> str:

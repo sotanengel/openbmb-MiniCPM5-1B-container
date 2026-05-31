@@ -9,6 +9,7 @@ from minicpm_container.protocol import (
     ConversationState,
     ModelClient,
     ProtocolError,
+    sanitize_message_content,
 )
 
 HELP_TEXT = """Commands:
@@ -25,6 +26,11 @@ def run_chat_loop(
     client: ModelClient | None = None,
     config: GenerationConfig | None = None,
 ) -> None:
+    if hasattr(sys.stdin, "reconfigure"):
+        sys.stdin.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     model_client = client or ModelClient()
     session_config = config or GenerationConfig.defaults()
     state = ConversationState()
@@ -40,6 +46,8 @@ def run_chat_loop(
 
         if not user_input:
             continue
+
+        user_input = sanitize_message_content(user_input)
 
         if user_input.startswith("/"):
             command = user_input.lower()

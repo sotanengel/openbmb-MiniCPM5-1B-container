@@ -38,6 +38,9 @@ FROM python:${PYTHON_VERSION}-slim AS runtime
 ENV PATH="/opt/venv/bin:${PATH}" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    PYTHONIOENCODING=utf-8 \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
     MODEL_PATH=/models/MiniCPM5-1B \
     MODEL_SOCKET_PATH=/run/model.sock
 

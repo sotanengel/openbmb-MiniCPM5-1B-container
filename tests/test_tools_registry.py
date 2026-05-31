@@ -36,3 +36,13 @@ def test_get_tool_schemas_matches_enabled_ids() -> None:
     names = {item["function"]["name"] for item in schemas}
     assert names == {"calculate", "web_search"}
     assert names <= ALL_TOOL_IDS
+
+
+def test_all_tool_ids_have_handlers() -> None:
+    from minicpm_container.tools.registry import get_tool_definition
+
+    for tool_id in ALL_TOOL_IDS:
+        definition = get_tool_definition(tool_id)
+        assert definition is not None
+        assert definition.handler is not None
+        assert definition.schema["function"]["name"] == tool_id

@@ -49,37 +49,9 @@ def _parse_param_value(raw: str, arg_type: str | None) -> Any:
 def _schema_lookup(
     tool_schemas: list[dict[str, Any]],
 ) -> tuple[set[str], dict[str, set[str]], dict[str, set[str]], dict[str, dict[str, str]]]:
-    names: set[str] = set()
-    allowed_props: dict[str, set[str]] = {}
-    required_props: dict[str, set[str]] = {}
-    prop_types: dict[str, dict[str, str]] = {}
+    from minicpm_container.tools.registry import parse_schema_metadata
 
-    for tool in tool_schemas:
-        function = tool.get("function")
-        if not isinstance(function, dict):
-            continue
-        name = function.get("name")
-        if not isinstance(name, str):
-            continue
-        names.add(name)
-        params = function.get("parameters")
-        if not isinstance(params, dict):
-            continue
-        properties = params.get("properties")
-        if isinstance(properties, dict):
-            allowed_props[name] = set(properties.keys())
-            prop_types[name] = {
-                key: value.get("type", "string")
-                for key, value in properties.items()
-                if isinstance(value, dict)
-            }
-        required = params.get("required")
-        if isinstance(required, list):
-            required_props[name] = {item for item in required if isinstance(item, str)}
-        else:
-            required_props[name] = set()
-
-    return names, allowed_props, required_props, prop_types
+    return parse_schema_metadata(tool_schemas)
 
 
 def _parse_function_block(

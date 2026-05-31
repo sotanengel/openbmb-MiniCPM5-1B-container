@@ -72,7 +72,7 @@ def test_http_get_success_with_mock() -> None:
     with (
         patch.dict(os.environ, {"CHAT_NETWORK_ENABLED": "1"}, clear=False),
         patch(
-            "minicpm_container.tools.executor.http_get",
+            "minicpm_container.tools.handlers.builtin.http_get",
             return_value="page body",
         ),
     ):
@@ -83,7 +83,7 @@ def test_web_search_delegates() -> None:
     with (
         patch.dict(os.environ, {"CHAT_NETWORK_ENABLED": "1"}, clear=False),
         patch(
-            "minicpm_container.tools.executor.web_search",
+            "minicpm_container.tools.handlers.builtin.web_search",
             return_value="results",
         ),
     ):

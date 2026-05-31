@@ -6,12 +6,23 @@ from unittest.mock import patch
 
 import pytest
 
-from minicpm_container.generation_config import GenerationConfig, prompt_generation_config
+from minicpm_container.generation_config import (
+    GenerationConfig,
+    format_generation_settings_help,
+    prompt_generation_config,
+)
 from minicpm_container.protocol import (
     DEFAULT_DO_SAMPLE,
     DEFAULT_MAX_NEW_TOKENS,
     DEFAULT_TEMPERATURE,
     DEFAULT_TOP_P,
+    MAX_MESSAGE_CHARS,
+    MAX_MESSAGES,
+    MAX_NEW_TOKENS,
+    MAX_TEMPERATURE,
+    MAX_TOP_P,
+    MIN_TEMPERATURE,
+    MIN_TOP_P,
 )
 
 
@@ -57,6 +68,37 @@ def test_generation_config_summary() -> None:
     summary = config.summary()
     assert "max_new_tokens=128" in summary
     assert "enable_thinking=false" in summary
+
+
+def test_format_generation_settings_help_includes_defaults_and_ranges() -> None:
+    help_text = format_generation_settings_help()
+    assert "max_new_tokens" in help_text
+    assert "enable_thinking" in help_text
+    assert "do_sample" in help_text
+    assert "temperature" in help_text
+    assert "top_p" in help_text
+    assert str(DEFAULT_MAX_NEW_TOKENS) in help_text
+    assert str(MAX_NEW_TOKENS) in help_text
+    assert str(DEFAULT_TEMPERATURE) in help_text
+    assert f"{MIN_TEMPERATURE}" in help_text
+    assert f"{MAX_TEMPERATURE}" in help_text
+    assert str(DEFAULT_TOP_P) in help_text
+    assert f"{MIN_TOP_P}" in help_text
+    assert f"{MAX_TOP_P}" in help_text
+    assert str(MAX_MESSAGES) in help_text
+    assert str(MAX_MESSAGE_CHARS) in help_text
+    assert "生成設定" in help_text
+
+
+def test_prompt_generation_config_prints_help_before_prompts(capsys) -> None:
+    with patch("builtins.input", side_effect=["", "", "", "", ""]):
+        prompt_generation_config()
+    captured = capsys.readouterr().out
+    help_marker = "有効範囲: 1〜512"
+    summary_marker = "\n設定:"
+    assert help_marker in captured
+    assert summary_marker in captured
+    assert captured.find(help_marker) < captured.find(summary_marker)
 
 
 def test_prompt_generation_config_uses_defaults_on_empty_input() -> None:

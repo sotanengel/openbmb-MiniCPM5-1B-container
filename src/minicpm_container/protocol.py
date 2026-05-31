@@ -7,9 +7,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from minicpm_container.model_limits import FALLBACK_MAX_POSITION_EMBEDDINGS
+from minicpm_container.tools.limits import MAX_MESSAGE_CHARS
 
 MAX_MESSAGES = 64
-MAX_MESSAGE_CHARS = 8192
 MAX_NEW_TOKENS = FALLBACK_MAX_POSITION_EMBEDDINGS
 DEFAULT_MAX_NEW_TOKENS = 128
 DEFAULT_TEMPERATURE = 0.7

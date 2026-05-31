@@ -5,12 +5,12 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from minicpm_container.env_utils import parse_env_bool
 from minicpm_container.protocol import (
     DEFAULT_DO_SAMPLE,
     DEFAULT_MAX_NEW_TOKENS,
     DEFAULT_TEMPERATURE,
     DEFAULT_TOP_P,
-    MAX_MESSAGE_CHARS,
     MAX_MESSAGES,
     MAX_NEW_TOKENS,
     MAX_TEMPERATURE,
@@ -25,6 +25,7 @@ from minicpm_container.system_prompt import (
     build_system_message,
     validate_response_language,
 )
+from minicpm_container.tools.limits import MAX_MESSAGE_CHARS
 from minicpm_container.tools.registry import (
     ALL_TOOL_IDS,
     format_tools_help,
@@ -39,14 +40,7 @@ THINKING_MODE_HYBRID = "hybrid"
 
 def resolve_template_enable_thinking() -> bool | None:
     """Map CHAT_ENABLE_THINKING to template flag; omitted (None) = official Hybrid mode."""
-    raw = os.environ.get(CHAT_ENABLE_THINKING_ENV, "").strip().lower()
-    if not raw:
-        return None
-    if raw in {"1", "true", "yes", "on"}:
-        return True
-    if raw in {"0", "false", "no", "off"}:
-        return False
-    return None
+    return parse_env_bool(os.environ.get(CHAT_ENABLE_THINKING_ENV))
 
 
 def _bool_default_label(value: bool) -> str:

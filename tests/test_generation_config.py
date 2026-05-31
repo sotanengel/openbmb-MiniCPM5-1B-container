@@ -45,6 +45,11 @@ def test_generation_config_validate_rejects_invalid_max_new_tokens() -> None:
         config.validate()
 
 
+def test_generation_config_validate_accepts_model_max_new_tokens() -> None:
+    config = GenerationConfig(max_new_tokens=MAX_NEW_TOKENS)
+    config.validate()
+
+
 def test_generation_config_validate_rejects_invalid_temperature() -> None:
     config = GenerationConfig(temperature=5.0)
     with pytest.raises(ValueError, match="temperature"):
@@ -96,6 +101,7 @@ def test_generation_config_summary() -> None:
 def test_format_generation_settings_help_includes_defaults_and_ranges() -> None:
     help_text = format_generation_settings_help()
     assert "max_new_tokens" in help_text
+    assert "残りコンテキストまで自動調整" in help_text
     assert "thinking_mode" in help_text
     assert "enabled_tools" in help_text
     assert "do_sample" in help_text
@@ -120,7 +126,7 @@ def test_prompt_generation_config_prints_help_before_prompts(capsys) -> None:
     with patch("builtins.input", side_effect=["", "", "", "", ""]):
         prompt_generation_config()
     captured = capsys.readouterr().out
-    help_marker = "有効範囲: 1〜512"
+    help_marker = f"有効範囲: 1〜{MAX_NEW_TOKENS}"
     summary_marker = "\n設定:"
     assert help_marker in captured
     assert summary_marker in captured

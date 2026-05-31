@@ -88,6 +88,37 @@ def test_model_engine_generate_passes_sampling_parameters() -> None:
     assert generate_kwargs["top_p"] == 0.8
 
 
+def test_model_engine_generate_clamps_max_new_tokens_to_remaining_context() -> None:
+    engine = ModelEngine("/tmp/model")
+    engine._max_position_embeddings = 100
+    tokenizer = MagicMock()
+    model = MagicMock()
+    engine._tokenizer = tokenizer
+    engine._model = model
+
+    input_ids = MagicMock()
+    input_ids.shape = [1, 90]
+    template_output = MagicMock()
+    template_output.to.return_value = {"input_ids": input_ids}
+    tokenizer.apply_chat_template.return_value = template_output
+    model.device = "cpu"
+
+    generated_token = MagicMock()
+    generated_ids = MagicMock()
+    generated_ids.__getitem__.return_value = [generated_token]
+    model.generate.return_value = [generated_ids]
+    tokenizer.decode.return_value = "short"
+
+    request = ChatRequest(
+        messages=[{"role": "user", "content": "hello"}],
+        max_new_tokens=500,
+    )
+    engine.generate(request)
+
+    generate_kwargs = model.generate.call_args.kwargs
+    assert generate_kwargs["max_new_tokens"] == 10
+
+
 def test_model_engine_passes_tools_to_chat_template() -> None:
     engine = ModelEngine("/tmp/model")
     tokenizer = MagicMock()

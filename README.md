@@ -65,7 +65,9 @@ CHAT_PASSWORD='your-secret' ./scripts/build.sh
 | `count_text` | ローカル | 文字数・単語数・行数 |
 | `convert_units` | ローカル | 長さ・質量・温度・バイト換算 |
 | `http_get` | ネットワーク | URL を **GET のみ**で取得（SSRF 対策あり） |
-| `web_search` | ネットワーク | DuckDuckGo HTML へ **GET のみ**で検索 |
+| `web_search` | ネットワーク | DuckDuckGo Lite へ **GET のみ**で検索 |
+
+ツール利用時は `enable_thinking=no` を推奨します（`yes` だと思考ブロックがツール呼び出しの前に混ざり、1B モデルが JSON/XML 形式を崩しやすくなります）。パーサーは XML に加え `{"name":"...","arguments":{...}}` 形式の JSON も受け付けます。
 
 | コマンド | 説明 |
 |---------|------|

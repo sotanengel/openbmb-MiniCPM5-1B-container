@@ -4,14 +4,20 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from minicpm_container.agent import _should_nudge_for_tool_xml, run_agent_turn
+from minicpm_container.agent import _should_nudge_for_tool_call, run_agent_turn
 from minicpm_container.generation_config import GenerationConfig
 from minicpm_container.protocol import ChatResponse, ConversationState
+from minicpm_container.tools.registry import get_tool_schemas
 
 
 def test_should_nudge_for_prose_tool_intent() -> None:
-    assert _should_nudge_for_tool_xml("I will use the calculate tool.")
-    assert not _should_nudge_for_tool_xml('<function name="calculate"></function>')
+    schemas = get_tool_schemas(("calculate",))
+    assert schemas is not None
+    assert _should_nudge_for_tool_call("I will use the calculate tool.", schemas)
+    assert not _should_nudge_for_tool_call(
+        '<function name="calculate"></function>',
+        schemas,
+    )
 
 
 def test_agent_nudge_then_executes_tool() -> None:

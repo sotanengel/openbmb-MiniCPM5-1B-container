@@ -7,12 +7,22 @@ from unittest.mock import MagicMock
 from minicpm_container.generation_decode import (
     decode_generated_text,
     strip_generation_artifacts,
+    strip_thinking_blocks,
 )
 
 
 def test_strip_generation_artifacts_removes_empty_thinking() -> None:
     raw = "<think>\n\n</think>\n\nHello"
     assert strip_generation_artifacts(raw) == "Hello"
+
+
+def test_strip_thinking_blocks_removes_nonempty_reasoning() -> None:
+    raw = (
+        "<think>\nPlan: call web_search\n</think>\n\n"
+        '{"name":"web_search","arguments":{"query":"test"}}'
+    )
+    assert "Plan" not in strip_thinking_blocks(raw)
+    assert "web_search" in strip_thinking_blocks(raw)
 
 
 def test_decode_generated_text_uses_skip_special_tokens_false() -> None:

@@ -24,9 +24,11 @@ AUTO_SYSTEM_PROMPT = (
 )
 
 TOOLS_USAGE_APPEND = (
-    "When you must call a tool, emit the call as XML only, using this shape: "
+    "When you must call a tool, emit the call as XML (preferred): "
     '<function name="TOOL_NAME"><param name="PARAM">value</param></function>. '
-    "Do not describe the call in prose instead of XML. "
+    "Alternatively JSON is accepted: "
+    '{"name":"TOOL_NAME","arguments":{"PARAM":"value"}}. '
+    "Do not describe the call in prose instead of emitting XML or JSON. "
     "After tool results appear in the conversation, answer the user concisely."
 )
 

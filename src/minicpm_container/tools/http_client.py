@@ -18,7 +18,11 @@ from minicpm_container.tools.limits import (
     NETWORK_REQUIRED_MESSAGE,
 )
 
-USER_AGENT = "MiniCPM5-1B-container/1.0 (safe-tools)"
+USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/122.0.0.0 Safari/537.36"
+)
 NETWORK_ENV = "CHAT_NETWORK_ENABLED"
 
 BLOCKED_HOSTNAMES = frozenset(
@@ -29,7 +33,7 @@ BLOCKED_HOSTNAMES = frozenset(
     }
 )
 
-WEB_SEARCH_BASE_URL = "https://html.duckduckgo.com/html/"
+WEB_SEARCH_BASE_URL = "https://lite.duckduckgo.com/lite/"
 
 
 class HttpClientError(ValueError):
@@ -225,6 +229,17 @@ def extract_visible_text(html_content: str, max_chars: int) -> str:
     return text
 
 
+def _detect_search_bot_block(html_content: str) -> bool:
+    lowered = html_content.lower()
+    markers = (
+        "bots use duckduckgo",
+        "confirm this search was made by a human",
+        "unusual traffic",
+        "anomaly-modal",
+    )
+    return any(marker in lowered for marker in markers)
+
+
 def web_search(
     query: str,
     *,
@@ -236,4 +251,12 @@ def web_search(
     encoded = urllib.parse.urlencode({"q": query})
     url = f"{WEB_SEARCH_BASE_URL}?{encoded}"
     html_content = http_get(url, opener=opener)
-    return extract_visible_text(html_content, MAX_TOOL_RESULT_CHARS)
+    if _detect_search_bot_block(html_content):
+        raise HttpClientError(
+            "search provider blocked automated access; "
+            "try a simpler query or http_get with a specific URL"
+        )
+    text = extract_visible_text(html_content, MAX_TOOL_RESULT_CHARS)
+    if not text.strip():
+        raise HttpClientError("search returned no readable text")
+    return text

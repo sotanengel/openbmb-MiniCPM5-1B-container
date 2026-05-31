@@ -37,13 +37,14 @@ def run_agent_turn(
         raw_content = response.content
         parsed = parse_tool_calls(raw_content, tool_schemas)
         if not parsed.calls:
-            if not nudge_used and _should_nudge_for_tool_xml(raw_content):
+            if not nudge_used and _should_nudge_for_tool_call(raw_content, tool_schemas):
                 nudge_used = True
                 state.add_assistant_message(raw_content)
                 state.add_user_message(
-                    "Emit the required tool call as XML only "
-                    '(<function name="..."><param name="...">...</param></function>). '
-                    "Do not explain; output the XML."
+                    "Emit the required tool call as XML "
+                    '(<function name="..."><param name="...">...</param></function>) '
+                    'or JSON ({"name":"...","arguments":{...}}). '
+                    "Do not explain; output only the tool call."
                 )
                 continue
             final_text = parsed.normal_text or raw_content.strip()
@@ -61,12 +62,17 @@ def run_agent_turn(
     return final_text or "(tool round limit reached)"
 
 
-def _should_nudge_for_tool_xml(content: str) -> bool:
-    """Detect prose-only tool intent so we can retry once with an explicit XML request."""
-    lowered = content.lower()
-    if "<function" in content or "<tool_call>" in content:
+def _should_nudge_for_tool_call(
+    content: str,
+    tool_schemas: list[dict],
+) -> bool:
+    """Detect prose-only tool intent so we can retry once with an explicit tool payload."""
+    if parse_tool_calls(content, tool_schemas).calls:
         return False
-    hints = ("tool", "calculate", "function call", "xml")
+    lowered = content.lower()
+    if "<function" in content or "<tool_call>" in content or '"name"' in content:
+        return False
+    hints = ("tool", "calculate", "web_search", "function call", "xml", "json")
     return any(hint in lowered for hint in hints)
 
 

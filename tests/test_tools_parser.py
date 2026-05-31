@@ -44,3 +44,26 @@ def test_parse_tool_calls_ignores_unknown_function() -> None:
     result = parse_tool_calls(text, _schemas())
     assert result.calls == []
     assert "<function" in result.normal_text
+
+
+def test_parse_tool_calls_json_web_search_after_thinking() -> None:
+    schemas = get_tool_schemas(("web_search",))
+    assert schemas is not None
+    text = (
+        "<think>\nEmit web_search for 名探偵コナン\n</think>\n\n"
+        '{"name":"web_search","arguments":{"query":"名探偵コナン"}}'
+    )
+    result = parse_tool_calls(text, schemas)
+    assert len(result.calls) == 1
+    assert result.calls[0].name == "web_search"
+    assert result.calls[0].arguments["query"] == "名探偵コナン"
+    assert "web_search" not in result.normal_text
+
+
+def test_parse_tool_calls_json_with_angle_bracket_prefix() -> None:
+    schemas = get_tool_schemas(("calculate",))
+    assert schemas is not None
+    text = '<{"name":"calculate","arguments":{"expression":"2+2"}}'
+    result = parse_tool_calls(text, schemas)
+    assert result.calls[0].name == "calculate"
+    assert result.calls[0].arguments["expression"] == "2+2"

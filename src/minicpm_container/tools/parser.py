@@ -9,6 +9,8 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import Any
 
+from minicpm_container.generation_decode import strip_thinking_blocks
+
 BOT_TOKEN = "<function"
 EOT_TOKEN = "</function>"
 TOOL_CALL_REGEX = re.compile(r"<tool_call>.*?</tool_call>", re.DOTALL)
@@ -161,20 +163,137 @@ def _strip_tool_call_wrappers(text: str) -> str:
     return TOOL_CALL_REGEX.sub("", text)
 
 
+def _normalize_tool_text(text: str) -> str:
+    cleaned = strip_thinking_blocks(text)
+    cleaned = cleaned.replace("<|im_sep|>", "")
+    cleaned = re.sub(r"<+(\{)", r"\1", cleaned)
+    return cleaned.strip()
+
+
+def _extract_json_object_spans(text: str) -> list[tuple[int, int, str]]:
+    spans: list[tuple[int, int, str]] = []
+    index = 0
+    while index < len(text):
+        start = text.find("{", index)
+        if start == -1:
+            break
+        depth = 0
+        for offset in range(start, len(text)):
+            char = text[offset]
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = text[start : offset + 1]
+                    if '"name"' in candidate:
+                        spans.append((start, offset + 1, candidate))
+                    index = offset + 1
+                    break
+        else:
+            break
+    return spans
+
+
+def _validate_arguments(
+    func_name: str,
+    arguments: dict[str, Any],
+    *,
+    allowed_props: dict[str, set[str]],
+    required_props: dict[str, set[str]],
+) -> bool:
+    allowed = allowed_props.get(func_name, set())
+    if allowed and not set(arguments.keys()).issubset(allowed):
+        return False
+    req = required_props.get(func_name, set())
+    return not req or req.issubset(arguments.keys())
+
+
+def _parse_json_tool_call(
+    payload: dict[str, Any],
+    *,
+    tool_names: set[str],
+    allowed_props: dict[str, set[str]],
+    required_props: dict[str, set[str]],
+) -> ParsedToolCall | None:
+    name = payload.get("name")
+    if not isinstance(name, str) or name not in tool_names:
+        return None
+
+    arguments = payload.get("arguments")
+    if not isinstance(arguments, dict):
+        arguments = {
+            key: value
+            for key, value in payload.items()
+            if key not in {"name", "type", "function"}
+            and isinstance(value, (str, int, float, bool))
+        }
+    if not isinstance(arguments, dict) or not arguments:
+        return None
+    normalized = {str(key): value for key, value in arguments.items()}
+    if not _validate_arguments(
+        name,
+        normalized,
+        allowed_props=allowed_props,
+        required_props=required_props,
+    ):
+        return None
+    return ParsedToolCall(name=name, arguments=normalized)
+
+
+def _parse_json_tool_calls(
+    text: str,
+    *,
+    tool_names: set[str],
+    allowed_props: dict[str, set[str]],
+    required_props: dict[str, set[str]],
+) -> tuple[list[ParsedToolCall], str]:
+    calls: list[ParsedToolCall] = []
+    remove_ranges: list[tuple[int, int]] = []
+    for start, end, candidate in _extract_json_object_spans(text):
+        try:
+            payload = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        parsed = _parse_json_tool_call(
+            payload,
+            tool_names=tool_names,
+            allowed_props=allowed_props,
+            required_props=required_props,
+        )
+        if parsed is None:
+            continue
+        calls.append(parsed)
+        remove_ranges.append((start, end))
+
+    if not remove_ranges:
+        return calls, text
+
+    normal_parts: list[str] = []
+    cursor = 0
+    for start, end in sorted(remove_ranges):
+        normal_parts.append(text[cursor:start])
+        cursor = end
+    normal_parts.append(text[cursor:])
+    normal_text = "".join(normal_parts).strip()
+    return calls, normal_text
+
+
 def parse_tool_calls(text: str, tool_schemas: list[dict[str, Any]] | None) -> ParseResult:
     if not tool_schemas:
         return ParseResult(normal_text=text, calls=[])
-    if BOT_TOKEN not in text and "<tool_call>" not in text:
-        return ParseResult(normal_text=text, calls=[])
 
+    cleaned = _normalize_tool_text(text)
     tool_names, allowed_props, required_props, prop_types = _schema_lookup(tool_schemas)
     normal_parts: list[str] = []
     calls: list[ParsedToolCall] = []
     last_end = 0
 
-    for match in FUNC_CALL_REGEX.finditer(text):
+    for match in FUNC_CALL_REGEX.finditer(cleaned):
         if match.start() > last_end:
-            normal_parts.append(text[last_end : match.start()])
+            normal_parts.append(cleaned[last_end : match.start()])
 
         parsed = _parse_function_block(
             match.group(0),
@@ -189,10 +308,18 @@ def parse_tool_calls(text: str, tool_schemas: list[dict[str, Any]] | None) -> Pa
             normal_parts.append(match.group(0))
         last_end = match.end()
 
-    if last_end < len(text):
-        normal_parts.append(text[last_end:])
+    if last_end < len(cleaned):
+        normal_parts.append(cleaned[last_end:])
 
     normal_text = _strip_tool_call_wrappers("".join(normal_parts)).strip()
-    # Drop tool separator between prose and tool XML from normal text.
-    normal_text = normal_text.replace("<|im_sep|>", "").strip()
+
+    if not calls:
+        json_calls, normal_text = _parse_json_tool_calls(
+            cleaned,
+            tool_names=tool_names,
+            allowed_props=allowed_props,
+            required_props=required_props,
+        )
+        calls.extend(json_calls)
+
     return ParseResult(normal_text=normal_text, calls=calls)

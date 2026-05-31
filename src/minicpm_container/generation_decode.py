@@ -4,6 +4,13 @@ from __future__ import annotations
 
 # MiniCPM5 registers XML/tool markup as added special tokens. skip_special_tokens=True
 # removes <function>, <param>, <tool_call>, etc., breaking the tool parser.
+import re
+
+_THINKING_BLOCK_RE = re.compile(
+    r"<think>[\s\S]*?</think>",
+    re.IGNORECASE,
+)
+
 _GENERATION_PREFIXES = (
     "<think>\n\n</think>\n\n",
     "<think>\n</think>\n\n",
@@ -17,9 +24,19 @@ _TRAILING_MARKERS = (
 )
 
 
+def strip_thinking_blocks(text: str) -> str:
+    """Remove MiniCPM5 reasoning blocks from model output."""
+    without_blocks = _THINKING_BLOCK_RE.sub("", text)
+    if "</think>" in without_blocks:
+        without_blocks = without_blocks.split("</think>")[-1]
+    if "<think>" in without_blocks:
+        without_blocks = without_blocks.split("<think>")[0]
+    return without_blocks
+
+
 def strip_generation_artifacts(text: str) -> str:
     """Remove empty thinking blocks and stray chat control tokens from decoded text."""
-    stripped = text
+    stripped = strip_thinking_blocks(text)
     changed = True
     while changed:
         changed = False

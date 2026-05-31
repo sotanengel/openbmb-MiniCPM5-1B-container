@@ -9,7 +9,6 @@ import pytest
 
 from minicpm_container.tools.http_client import (
     HttpClientError,
-    extract_visible_text,
     http_get,
     validate_url,
     web_search,
@@ -109,13 +108,6 @@ def test_http_get_rejects_oversized_body() -> None:
     ):
         with pytest.raises(HttpClientError, match="exceeds"):
             http_get("https://example.com", opener=FakeOpener())
-
-
-def test_extract_visible_text_strips_scripts() -> None:
-    html = "<html><script>bad()</script><body><p>OK</p></body></html>"
-    text = extract_visible_text(html, 1000)
-    assert "OK" in text
-    assert "bad" not in text
 
 
 def test_web_search_delegates_to_search_providers() -> None:

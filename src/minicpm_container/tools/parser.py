@@ -11,8 +11,6 @@ from typing import Any
 
 from minicpm_container.generation_decode import strip_thinking_blocks
 
-BOT_TOKEN = "<function"
-EOT_TOKEN = "</function>"
 TOOL_CALL_REGEX = re.compile(r"<tool_call>.*?</tool_call>", re.DOTALL)
 FUNC_CALL_REGEX = re.compile(r"<function.*?</function>", re.DOTALL)
 FUNC_NAME_REGEX = re.compile(r'<function\s+name=[\'"]([^\'"]+)[\'"][^>]*>')

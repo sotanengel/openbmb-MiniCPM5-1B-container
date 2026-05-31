@@ -8,7 +8,6 @@ from typing import Any
 from minicpm_container.tools.calculate import CalculateError, safe_calculate
 from minicpm_container.tools.http_client import HttpClientError, http_get, web_search
 from minicpm_container.tools.limits import (
-    MAX_SEARCH_QUERY_CHARS,
     MAX_TEXT_ARG_CHARS,
     MAX_TOOL_RESULT_CHARS,
 )
@@ -120,8 +119,6 @@ def execute_tool(name: str, arguments: dict[str, Any]) -> str:
             return _truncate(http_get(url))
         if name == "web_search":
             query = _require_str(arguments, "query")
-            if len(query) > MAX_SEARCH_QUERY_CHARS:
-                raise ValueError(f"query exceeds {MAX_SEARCH_QUERY_CHARS} characters")
             return _truncate(web_search(query))
     except (CalculateError, HttpClientError, ValueError) as exc:
         return f"error: {exc}"

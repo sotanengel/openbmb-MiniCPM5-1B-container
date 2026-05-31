@@ -1,6 +1,8 @@
-"""Limits for tool execution and agent loop."""
+"""Limits for tool execution, agent loop, and protocol messages."""
 
+MAX_MESSAGE_CHARS = 8192
 MAX_TOOL_RESULT_CHARS = 4096
+MAX_FALLBACK_TOOL_RESULT_CHARS = 800
 MAX_WEB_SEARCH_RESULT_CHARS = 1200
 MAX_TOOL_ROUNDS = 5
 MAX_TOOL_CALLS_PER_RESPONSE = 3

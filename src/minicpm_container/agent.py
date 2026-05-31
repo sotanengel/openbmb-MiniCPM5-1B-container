@@ -6,6 +6,7 @@ from minicpm_container.generation_config import GenerationConfig
 from minicpm_container.protocol import ConversationState, ModelClient, ProtocolError
 from minicpm_container.tools.executor import execute_tool
 from minicpm_container.tools.limits import (
+    MAX_FALLBACK_TOOL_RESULT_CHARS,
     MAX_TOOL_CALLS_PER_RESPONSE,
     MAX_TOOL_ROUNDS,
 )
@@ -161,8 +162,8 @@ def _fallback_from_tool_results(state: ConversationState) -> str:
             continue
         content = message.get("content", "").strip()
         if content and not content.lower().startswith("error:"):
-            if len(content) > 800:
-                return content[:800] + "…"
+            if len(content) > MAX_FALLBACK_TOOL_RESULT_CHARS:
+                return content[:MAX_FALLBACK_TOOL_RESULT_CHARS] + "…"
             return content
     return ""
 

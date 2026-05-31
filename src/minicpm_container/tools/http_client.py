@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import html.parser
 import ipaddress
 import os
 import socket
@@ -10,6 +9,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from minicpm_container.env_utils import parse_env_bool
 from minicpm_container.tools.limits import (
     HTTP_MAX_REDIRECTS,
     HTTP_TIMEOUT_SECONDS,
@@ -38,7 +38,7 @@ class HttpClientError(ValueError):
 
 
 def is_network_enabled() -> bool:
-    return os.environ.get(NETWORK_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
+    return parse_env_bool(os.environ.get(NETWORK_ENV), default=False) is True
 
 
 def require_network() -> None:
@@ -193,37 +193,6 @@ def http_get(
             return body.decode(charset, errors="replace")
         except LookupError:
             return body.decode("utf-8", errors="replace")
-
-
-class _TextExtractor(html.parser.HTMLParser):
-    def __init__(self) -> None:
-        super().__init__()
-        self._parts: list[str] = []
-        self._skip_depth = 0
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if tag in {"script", "style", "noscript"}:
-            self._skip_depth += 1
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag in {"script", "style", "noscript"} and self._skip_depth:
-            self._skip_depth -= 1
-
-    def handle_data(self, data: str) -> None:
-        if self._skip_depth == 0 and data.strip():
-            self._parts.append(data.strip())
-
-    def text(self) -> str:
-        return "\n".join(self._parts)
-
-
-def extract_visible_text(html_content: str, max_chars: int) -> str:
-    parser = _TextExtractor()
-    parser.feed(html_content)
-    text = parser.text()
-    if len(text) > max_chars:
-        return text[:max_chars] + "…"
-    return text
 
 
 def web_search(

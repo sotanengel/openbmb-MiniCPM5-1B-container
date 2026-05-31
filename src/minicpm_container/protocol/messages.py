@@ -1,9 +1,9 @@
-"""JSON protocol for chat CLI <-> model server communication."""
+"""Chat request/response DTOs and protocol validation."""
 
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from minicpm_container.model_limits import FALLBACK_MAX_POSITION_EMBEDDINGS
@@ -184,44 +184,3 @@ class ChatResponse:
         if not isinstance(content, str):
             raise ProtocolError("content must be a string")
         return cls(content=content)
-
-
-@dataclass
-class ModelClient:
-    socket_path: str = DEFAULT_SOCKET_PATH
-    timeout_seconds: float = 300.0
-
-    def send(self, request: ChatRequest) -> ChatResponse:
-        import socket
-
-        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
-            sock.settimeout(self.timeout_seconds)
-            sock.connect(self.socket_path)
-            sock.sendall(request.to_json().encode("utf-8"))
-            sock.shutdown(socket.SHUT_WR)
-            chunks: list[bytes] = []
-            while True:
-                chunk = sock.recv(65536)
-                if not chunk:
-                    break
-                chunks.append(chunk)
-        if not chunks:
-            raise ProtocolError("empty response from model server")
-        return ChatResponse.from_json(b"".join(chunks).decode("utf-8"))
-
-
-@dataclass
-class ConversationState:
-    messages: list[dict[str, str]] = field(default_factory=list)
-
-    def add_user_message(self, content: str) -> None:
-        self.messages.append({"role": "user", "content": sanitize_message_content(content)})
-
-    def add_assistant_message(self, content: str) -> None:
-        self.messages.append({"role": "assistant", "content": sanitize_message_content(content)})
-
-    def add_tool_message(self, content: str) -> None:
-        self.messages.append({"role": "tool", "content": sanitize_message_content(content)})
-
-    def clear(self) -> None:
-        self.messages.clear()

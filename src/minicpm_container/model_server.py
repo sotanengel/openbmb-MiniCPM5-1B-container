@@ -18,6 +18,8 @@ from minicpm_container.protocol import (
     ChatRequest,
     ChatResponse,
     ProtocolError,
+    recv_all,
+    send_json,
 )
 
 logger = logging.getLogger(__name__)
@@ -114,27 +116,22 @@ def _configure_socket_permissions(socket_path: Path) -> None:
 
 
 def _handle_client(connection: socket.socket, engine: ModelEngine) -> None:
-    chunks: list[bytes] = []
-    while True:
-        chunk = connection.recv(65536)
-        if not chunk:
-            break
-        chunks.append(chunk)
+    payload = recv_all(connection)
 
-    if not chunks:
+    if not payload:
         response = ChatResponse(content="", error="empty request")
-        connection.sendall(response.to_json().encode("utf-8"))
+        send_json(connection, response.to_json())
         return
 
     try:
-        request = ChatRequest.from_json(b"".join(chunks).decode("utf-8"))
+        request = ChatRequest.from_json(payload.decode("utf-8"))
     except ProtocolError as exc:
         response = ChatResponse(content="", error=str(exc))
-        connection.sendall(response.to_json().encode("utf-8"))
+        send_json(connection, response.to_json())
         return
 
     response = engine.generate(request)
-    connection.sendall(response.to_json().encode("utf-8"))
+    send_json(connection, response.to_json())
 
 
 def serve_forever(

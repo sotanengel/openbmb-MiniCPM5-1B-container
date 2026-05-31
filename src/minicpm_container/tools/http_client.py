@@ -131,6 +131,24 @@ def _default_opener() -> urllib.request.OpenerDirector:
     )
 
 
+_REDIRECT_STATUS_CODES = frozenset({301, 302, 303, 307, 308})
+
+
+def _resolve_redirect(
+    current_url: str,
+    status: int,
+    location: str | None,
+    redirects: int,
+) -> tuple[str, int]:
+    if status not in _REDIRECT_STATUS_CODES:
+        raise HttpClientError(f"HTTP status {status}")
+    if not location:
+        raise HttpClientError("redirect missing Location header")
+    if redirects >= HTTP_MAX_REDIRECTS:
+        raise HttpClientError("too many redirects")
+    return urllib.parse.urljoin(current_url, location), redirects + 1
+
+
 def http_get(
     url: str,
     *,
@@ -153,14 +171,11 @@ def http_get(
         try:
             with client.open(request, timeout=HTTP_TIMEOUT_SECONDS) as response:
                 status = getattr(response, "status", None) or response.getcode()
-                if status in {301, 302, 303, 307, 308}:
+                if status in _REDIRECT_STATUS_CODES:
                     location = response.headers.get("Location")
-                    if not location:
-                        raise HttpClientError("redirect missing Location header")
-                    if redirects >= HTTP_MAX_REDIRECTS:
-                        raise HttpClientError("too many redirects")
-                    redirects += 1
-                    current_url = urllib.parse.urljoin(current_url, location)
+                    current_url, redirects = _resolve_redirect(
+                        current_url, status, location, redirects
+                    )
                     continue
                 if status and status >= 400:
                     raise HttpClientError(f"HTTP status {status}")
@@ -168,14 +183,14 @@ def http_get(
         except HttpClientError:
             raise
         except urllib.error.HTTPError as exc:
-            if exc.code in {301, 302, 303, 307, 308}:
+            if exc.code in _REDIRECT_STATUS_CODES:
                 location = exc.headers.get("Location")
-                if not location:
-                    raise HttpClientError("redirect missing Location header") from exc
-                if redirects >= HTTP_MAX_REDIRECTS:
-                    raise HttpClientError("too many redirects") from exc
-                redirects += 1
-                current_url = urllib.parse.urljoin(current_url, location)
+                try:
+                    current_url, redirects = _resolve_redirect(
+                        current_url, exc.code, location, redirects
+                    )
+                except HttpClientError as redirect_exc:
+                    raise redirect_exc from exc
                 continue
             raise HttpClientError(f"HTTP status {exc.code}") from exc
         except urllib.error.URLError as exc:

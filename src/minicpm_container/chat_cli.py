@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import sys
 
+from minicpm_container.generation_config import GenerationConfig
 from minicpm_container.protocol import (
-    ChatRequest,
     ConversationState,
     ModelClient,
     ProtocolError,
@@ -18,11 +18,16 @@ HELP_TEXT = """Commands:
 """
 
 
-def run_chat_loop(client: ModelClient | None = None) -> None:
+def run_chat_loop(
+    client: ModelClient | None = None,
+    config: GenerationConfig | None = None,
+) -> None:
     model_client = client or ModelClient()
+    session_config = config or GenerationConfig.defaults()
     state = ConversationState()
 
     print("MiniCPM5-1B secure chat. Type /help for commands.")
+    print(f"Generation settings: {session_config.summary()}")
     while True:
         try:
             user_input = input("You> ").strip()
@@ -49,7 +54,7 @@ def run_chat_loop(client: ModelClient | None = None) -> None:
             continue
 
         state.add_user_message(user_input)
-        request = ChatRequest(messages=list(state.messages))
+        request = session_config.to_chat_request(list(state.messages))
 
         try:
             response = model_client.send(request)

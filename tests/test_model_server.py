@@ -44,3 +44,41 @@ def test_handle_client_generates_response() -> None:
     response = ChatResponse.from_json(sent)
     assert response.content == "hi there"
     engine.generate.assert_called_once()
+
+
+def test_model_engine_generate_passes_sampling_parameters() -> None:
+    engine = ModelEngine("/tmp/model")
+    tokenizer = MagicMock()
+    model = MagicMock()
+    engine._tokenizer = tokenizer
+    engine._model = model
+
+    input_ids = MagicMock()
+    input_ids.shape = [1, 4]
+    template_output = MagicMock()
+    template_output.to.return_value = {"input_ids": input_ids}
+    tokenizer.apply_chat_template.return_value = template_output
+    model.device = "cpu"
+
+    generated_token = MagicMock()
+    generated_ids = MagicMock()
+    generated_ids.__getitem__.return_value = [generated_token]
+    model.generate.return_value = [generated_ids]
+    tokenizer.decode.return_value = "response"
+
+    request = ChatRequest(
+        messages=[{"role": "user", "content": "hello"}],
+        max_new_tokens=64,
+        do_sample=False,
+        temperature=0.5,
+        top_p=0.8,
+    )
+    response = engine.generate(request)
+
+    assert response.error is None
+    assert response.content == "response"
+    generate_kwargs = model.generate.call_args.kwargs
+    assert generate_kwargs["max_new_tokens"] == 64
+    assert generate_kwargs["do_sample"] is False
+    assert generate_kwargs["temperature"] == 0.5
+    assert generate_kwargs["top_p"] == 0.8

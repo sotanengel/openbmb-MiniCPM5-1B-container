@@ -63,8 +63,10 @@ def main() -> None:
         raise SystemExit(1) from exc
 
     from minicpm_container.chat_cli import run_chat_loop
+    from minicpm_container.generation_config import prompt_generation_config
 
-    run_chat_loop()
+    config = prompt_generation_config()
+    run_chat_loop(config=config)
 
 
 if __name__ == "__main__":

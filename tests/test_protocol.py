@@ -5,6 +5,9 @@ from __future__ import annotations
 import pytest
 
 from minicpm_container.protocol import (
+    DEFAULT_DO_SAMPLE,
+    DEFAULT_TEMPERATURE,
+    DEFAULT_TOP_P,
     ChatRequest,
     ChatResponse,
     ConversationState,
@@ -76,3 +79,53 @@ def test_invalid_json_raises_protocol_error() -> None:
 
     with pytest.raises(ProtocolError, match="JSON object"):
         ChatResponse.from_json("[]")
+
+
+def test_chat_request_roundtrip_with_sampling_fields() -> None:
+    request = ChatRequest(
+        messages=[{"role": "user", "content": "Hello"}],
+        max_new_tokens=64,
+        enable_thinking=True,
+        do_sample=False,
+        temperature=0.5,
+        top_p=0.8,
+    )
+    restored = ChatRequest.from_json(request.to_json())
+    assert restored.enable_thinking is True
+    assert restored.do_sample is False
+    assert restored.temperature == 0.5
+    assert restored.top_p == 0.8
+
+
+def test_chat_request_uses_sampling_defaults_when_omitted() -> None:
+    request = ChatRequest.from_dict({"messages": [{"role": "user", "content": "hi"}]})
+    assert request.temperature == DEFAULT_TEMPERATURE
+    assert request.top_p == DEFAULT_TOP_P
+    assert request.do_sample is DEFAULT_DO_SAMPLE
+
+
+def test_chat_request_rejects_invalid_temperature() -> None:
+    payload = {
+        "messages": [{"role": "user", "content": "hi"}],
+        "temperature": 3.0,
+    }
+    with pytest.raises(ProtocolError, match="temperature"):
+        ChatRequest.from_dict(payload)
+
+
+def test_chat_request_rejects_invalid_top_p() -> None:
+    payload = {
+        "messages": [{"role": "user", "content": "hi"}],
+        "top_p": 1.5,
+    }
+    with pytest.raises(ProtocolError, match="top_p"):
+        ChatRequest.from_dict(payload)
+
+
+def test_chat_request_rejects_invalid_do_sample() -> None:
+    payload = {
+        "messages": [{"role": "user", "content": "hi"}],
+        "do_sample": "yes",
+    }
+    with pytest.raises(ProtocolError, match="do_sample"):
+        ChatRequest.from_dict(payload)

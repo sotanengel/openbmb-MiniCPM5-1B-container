@@ -1,0 +1,16 @@
+services:
+  minicpm:
+    image: minicpm5-1b-chat:latest
+    container_name: minicpm5-1b-chat
+    network_mode: none
+    read_only: true
+    init: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    user: "1001:1002"
+    tmpfs:
+      - /tmp:mode=1777
+      - /run:uid=1001,gid=1002,mode=775
+    restart: unless-stopped

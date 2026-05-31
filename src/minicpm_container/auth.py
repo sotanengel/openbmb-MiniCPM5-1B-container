@@ -75,14 +75,14 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(1) from exc
 
     from minicpm_container.chat_cli import run_chat_loop
-    from minicpm_container.generation_config import (
-        _prompt_enabled_tools,
+    from minicpm_container.generation_config_prompt import (
+        prompt_enabled_tools,
         prompt_generation_config,
     )
 
     enabled_tools = resolve_enabled_tools(
         args,
-        prompt_callback=lambda: _prompt_enabled_tools(()),
+        prompt_callback=lambda: prompt_enabled_tools(()),
     )
     warn_if_network_tools_without_egress(enabled_tools)
 

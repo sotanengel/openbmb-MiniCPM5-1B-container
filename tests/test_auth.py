@@ -73,7 +73,7 @@ def test_main_runs_login_flow_with_generation_config() -> None:
         patch.dict(os.environ, {"CHAT_PASSWORD_HASH": password_hash}, clear=True),
         patch("minicpm_container.auth.getpass", return_value=password),
         patch(
-            "minicpm_container.generation_config.prompt_generation_config",
+            "minicpm_container.generation_config_prompt.prompt_generation_config",
             return_value=config,
         ) as prompt,
         patch("minicpm_container.chat_cli.run_chat_loop") as run_chat,

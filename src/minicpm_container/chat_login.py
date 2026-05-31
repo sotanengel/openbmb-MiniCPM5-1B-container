@@ -12,16 +12,18 @@ from minicpm_container.generation_config_prompt import (
 )
 from minicpm_container.login_cli import (
     build_login_parser,
+    normalize_login_argv,
     resolve_enabled_tools,
     warn_if_network_tools_without_egress,
 )
+from minicpm_container.tools.registry import DEFAULT_ENABLED_TOOLS
 
 
 def main(argv: list[str] | None = None) -> None:
     configure_stdio()
 
     parser = build_login_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(normalize_login_argv(argv if argv is not None else sys.argv[1:]))
 
     try:
         authenticate()
@@ -31,7 +33,7 @@ def main(argv: list[str] | None = None) -> None:
 
     enabled_tools = resolve_enabled_tools(
         args,
-        prompt_callback=lambda: prompt_enabled_tools(()),
+        prompt_callback=lambda: prompt_enabled_tools(DEFAULT_ENABLED_TOOLS),
     )
     warn_if_network_tools_without_egress(enabled_tools)
 

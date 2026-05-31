@@ -23,7 +23,7 @@ from minicpm_container.system_prompt import (
     build_system_message,
     validate_response_language,
 )
-from minicpm_container.tools.registry import get_tool_schemas
+from minicpm_container.tools.registry import DEFAULT_ENABLED_TOOLS, get_tool_schemas
 
 RESPONSE_LANGUAGE_ENV = "CHAT_RESPONSE_LANGUAGE"
 CHAT_ENABLE_THINKING_ENV = "CHAT_ENABLE_THINKING"
@@ -43,7 +43,7 @@ class GenerationConfig:
     temperature: float = DEFAULT_TEMPERATURE
     top_p: float = DEFAULT_TOP_P
     response_language: str = RESPONSE_LANGUAGE_AUTO
-    enabled_tools: tuple[str, ...] = ()
+    enabled_tools: tuple[str, ...] = DEFAULT_ENABLED_TOOLS
 
     @classmethod
     def defaults(cls) -> GenerationConfig:

@@ -29,6 +29,7 @@ from minicpm_container.protocol import (
     MIN_TOP_P,
 )
 from minicpm_container.system_prompt import RESPONSE_LANGUAGE_AUTO
+from minicpm_container.tools.registry import DEFAULT_ENABLED_TOOLS
 
 
 def test_generation_config_defaults() -> None:
@@ -39,6 +40,7 @@ def test_generation_config_defaults() -> None:
     assert config.temperature == DEFAULT_TEMPERATURE
     assert config.top_p == DEFAULT_TOP_P
     assert config.response_language == RESPONSE_LANGUAGE_AUTO
+    assert config.enabled_tools == DEFAULT_ENABLED_TOOLS
 
 
 def test_generation_config_validate_rejects_invalid_max_new_tokens() -> None:
@@ -106,6 +108,7 @@ def test_format_generation_settings_help_includes_defaults_and_ranges() -> None:
     assert "残りコンテキストまで自動調整" in help_text
     assert "thinking_mode" in help_text
     assert "enabled_tools" in help_text
+    assert "calculate" in help_text
     assert "do_sample" in help_text
     assert "temperature" in help_text
     assert "top_p" in help_text

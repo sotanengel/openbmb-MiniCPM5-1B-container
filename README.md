@@ -8,7 +8,7 @@
 - モデル推論プロセス（`model` ユーザー）と対話 CLI（`chat` ユーザー）を分離
 - Unix ソケット経由の JSON プロトコル（HTTP/API サーバーなし）
 - パスワード認証後のみ CLI 対話を開始
-- オプションで [MiniCPM5 ツール呼び出し](https://huggingface.co/openbmb/MiniCPM5-1B)（ホワイトリストのみ、`--tools` で指定）
+- オプションで [MiniCPM5 ツール呼び出し](https://huggingface.co/openbmb/MiniCPM5-1B)（ホワイトリストのみ、デフォルト全有効、`--tools` で調整）
 
 ## 前提
 
@@ -43,19 +43,28 @@ CHAT_PASSWORD='your-secret' ./scripts/build.sh
 |------|------|
 | `response_language` | 応答言語。`auto`（デフォルト）でユーザー入力言語に追従。`ja` / `en` 等で固定も可 |
 | 環境変数 `CHAT_RESPONSE_LANGUAGE` | ログイン時プロンプトのデフォルト値（例: `ja`） |
-| `enabled_tools` | 有効ツール ID（カンマ区切り）。省略時は `none`（ツール無効） |
-| 環境変数 `CHAT_TOOLS` | ログイン引数 `--tools` 未指定時のデフォルト（例: `calculate,count_text`） |
+| `enabled_tools` | 有効ツール ID（カンマ区切り）。省略時はホワイトリスト全ツール有効 |
+| 環境変数 `CHAT_TOOLS` | ログイン引数 `--tools` 未指定時の指定（例: `-http_get,-web_search` または `calculate,count_text`） |
 
 ### ツール（`--tools`）
 
-デフォルトではツールは無効です。ログイン時に有効化します。
+デフォルトではホワイトリスト登録済みの全ツールが有効です。ログイン時に禁止・限定できます。
 
 ```bash
-# ローカル安全ツールのみ（オフラインのまま）
+# 全ツール ON（デフォルト）
+./scripts/run.sh
+
+# ネットワークツールのみ禁止（オフラインのまま）
+./scripts/run.sh -- --tools=-http_get,-web_search
+
+# 許可リストで限定
 ./scripts/run.sh -- --tools calculate,current_datetime
 
+# 全無効
+./scripts/run.sh -- --tools none
+
 # HTTP ツール（GET のみ）— ネットワーク override が必要
-./scripts/run.sh --network -- --tools http_get,web_search
+./scripts/run.sh --network -- --tools -calculate
 ```
 
 | ID | 種別 | 説明 |
@@ -111,7 +120,7 @@ pre-commit run --all-files
 ### 推論の制限
 
 - `trust_remote_code=False`（任意コード実行を禁止）
-- ツールは **ホワイトリストのみ**（デフォルト無効、`--tools` で明示有効化）
+- ツールは **ホワイトリストのみ**（デフォルト全有効、`-id` で禁止または許可リストで限定）
 - MiniCPM5 の `<function>` / `<param>` はトークナイザ上の special token のため、推論デコードでは `skip_special_tokens=False` が必須
 - ツール実行は **GET のみ**・SSRF ブロック・レスポンスサイズ上限（HTTP ツール）
 - メッセージ数・文字数に上限。`max_new_tokens` はモデルコンテキスト長（131,072）まで指定可能（ログイン時デフォルト 128。必要なら明示的に下げる）。プロンプトが長い場合は残りコンテキストまで推論時に自動調整。CPU 推論では大きな値は時間・メモリコストが大きい

@@ -6,8 +6,10 @@ import pytest
 
 from minicpm_container.tools.registry import (
     ALL_TOOL_IDS,
+    DEFAULT_ENABLED_TOOLS,
     get_tool_schemas,
     parse_enabled_tools,
+    resolve_tool_selection,
 )
 
 
@@ -36,6 +38,38 @@ def test_get_tool_schemas_matches_enabled_ids() -> None:
     names = {item["function"]["name"] for item in schemas}
     assert names == {"calculate", "web_search"}
     assert names <= ALL_TOOL_IDS
+
+
+def test_default_enabled_tools_matches_all_tool_ids() -> None:
+    assert DEFAULT_ENABLED_TOOLS == tuple(sorted(ALL_TOOL_IDS))
+
+
+def test_resolve_tool_selection_defaults_to_all() -> None:
+    assert resolve_tool_selection(None) == DEFAULT_ENABLED_TOOLS
+
+
+def test_resolve_tool_selection_none_disables_all() -> None:
+    assert resolve_tool_selection("none") == ()
+
+
+def test_resolve_tool_selection_allow_list() -> None:
+    assert resolve_tool_selection("calculate,http_get") == ("calculate", "http_get")
+
+
+def test_resolve_tool_selection_disable_from_default() -> None:
+    result = resolve_tool_selection("-http_get,-web_search")
+    assert "http_get" not in result
+    assert "web_search" not in result
+    assert set(result) == ALL_TOOL_IDS - {"http_get", "web_search"}
+
+
+def test_resolve_tool_selection_mixed_allow_and_disable() -> None:
+    assert resolve_tool_selection("calculate,http_get,-http_get") == ("calculate",)
+
+
+def test_resolve_tool_selection_rejects_unknown_disable() -> None:
+    with pytest.raises(ValueError, match="unknown tool"):
+        resolve_tool_selection("-run_shell")
 
 
 def test_all_tool_ids_have_handlers() -> None:

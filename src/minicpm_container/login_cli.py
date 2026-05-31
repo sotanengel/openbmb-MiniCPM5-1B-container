@@ -6,9 +6,30 @@ import argparse
 import os
 from collections.abc import Callable
 
-from minicpm_container.tools.registry import NETWORK_TOOL_IDS, parse_enabled_tools
+from minicpm_container.tools.registry import (
+    DEFAULT_ENABLED_TOOLS,
+    NETWORK_TOOL_IDS,
+    resolve_tool_selection,
+)
 
 CHAT_TOOLS_ENV = "CHAT_TOOLS"
+
+
+def normalize_login_argv(argv: list[str]) -> list[str]:
+    """Rewrite ``--tools -id`` so argparse does not treat the value as a flag."""
+    normalized: list[str] = []
+    index = 0
+    while index < len(argv):
+        arg = argv[index]
+        if arg == "--tools" and index + 1 < len(argv):
+            value = argv[index + 1]
+            if value.startswith("-") and not value.startswith("--"):
+                normalized.append(f"--tools={value}")
+                index += 2
+                continue
+        normalized.append(arg)
+        index += 1
+    return normalized
 
 
 def build_login_parser() -> argparse.ArgumentParser:
@@ -21,8 +42,8 @@ def build_login_parser() -> argparse.ArgumentParser:
         metavar="TOOLS",
         default=None,
         help=(
-            "Comma-separated tool ids to enable (none disables). "
-            "Example: calculate,http_get,web_search"
+            "Tool selection: id1,id2 (allow-list), -id (disable from default), "
+            "none (disable all). Example: --tools=-http_get,-web_search"
         ),
     )
     parser.add_argument(
@@ -39,16 +60,16 @@ def resolve_enabled_tools(
     prompt_callback: Callable[[], tuple[str, ...]] | None = None,
 ) -> tuple[str, ...]:
     if args.tools is not None:
-        return parse_enabled_tools(args.tools)
+        return resolve_tool_selection(args.tools)
 
     env_value = os.environ.get(CHAT_TOOLS_ENV, "").strip()
     if env_value:
-        return parse_enabled_tools(env_value)
+        return resolve_tool_selection(env_value)
 
     if args.tools_prompt and prompt_callback is not None:
         return prompt_callback()
 
-    return ()
+    return DEFAULT_ENABLED_TOOLS
 
 
 def warn_if_network_tools_without_egress(enabled_tools: tuple[str, ...]) -> None:

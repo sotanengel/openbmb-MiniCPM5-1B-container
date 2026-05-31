@@ -96,7 +96,10 @@ _TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
         "type": "function",
         "function": {
             "name": "web_search",
-            "description": "Search the web via GET (DuckDuckGo HTML) and return extracted text.",
+            "description": (
+                "Search via Wikipedia and DuckDuckGo Instant Answer (GET JSON). "
+                "Optional SearXNG when CHAT_SEARX_BASE_URL is set."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {

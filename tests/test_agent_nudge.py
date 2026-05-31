@@ -39,3 +39,23 @@ def test_agent_nudge_then_executes_tool() -> None:
     assert text == "The result is 391."
     assert client.send.call_count == 3
     assert any(message["role"] == "tool" for message in state.messages)
+
+
+def test_agent_prompts_for_answer_after_tool_only_response() -> None:
+    tool_xml = ChatResponse(
+        content=(
+            '<function name="calculate">'
+            '<param name="expression">1+1</param></function>'
+        ),
+    )
+    final = ChatResponse(content="The answer is 2.")
+    client = MagicMock()
+    client.send.side_effect = [tool_xml, final]
+
+    state = ConversationState()
+    config = GenerationConfig(enabled_tools=("calculate",))
+    text = run_agent_turn(client, config, state, "What is 1+1?")
+
+    assert text == "The answer is 2."
+    follow_up = [m for m in state.messages if m["role"] == "user"][-1]["content"]
+    assert "Do not call any more tools" in follow_up

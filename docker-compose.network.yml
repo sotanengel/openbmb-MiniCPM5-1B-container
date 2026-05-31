@@ -7,3 +7,5 @@ services:
     network_mode: bridge
     environment:
       CHAT_NETWORK_ENABLED: "1"
+      # Optional: trusted SearXNG instance for broader web_search results
+      # CHAT_SEARX_BASE_URL: "https://your-searx-instance"

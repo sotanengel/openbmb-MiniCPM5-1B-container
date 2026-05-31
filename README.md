@@ -65,9 +65,11 @@ CHAT_PASSWORD='your-secret' ./scripts/build.sh
 | `count_text` | ローカル | 文字数・単語数・行数 |
 | `convert_units` | ローカル | 長さ・質量・温度・バイト換算 |
 | `http_get` | ネットワーク | URL を **GET のみ**で取得（SSRF 対策あり） |
-| `web_search` | ネットワーク | DuckDuckGo Lite へ **GET のみ**で検索 |
+| `web_search` | ネットワーク | Wikipedia + DuckDuckGo Instant Answer（**GET JSON**）。任意で `CHAT_SEARX_BASE_URL` に SearXNG |
 
-ツール利用時は `enable_thinking=no` を推奨します（`yes` だと思考ブロックがツール呼び出しの前に混ざり、1B モデルが JSON/XML 形式を崩しやすくなります）。パーサーは XML に加え `{"name":"...","arguments":{...}}` 形式の JSON も受け付けます。
+`web_search` は HTML スクレイピングを使わず、Docker から CAPTCHA なしで使える JSON API のみ利用します。一般 Web 全文検索が必要な場合は、信頼できる自前 SearXNG を `CHAT_SEARX_BASE_URL`（例: `https://searx.example.com`）で指定してください。
+
+ツール利用時は `enable_thinking=no` を推奨します。`web_search` では `max_new_tokens` を 256 程度にすると要約しやすくなります。パーサーは XML に加え `{"name":"...","arguments":{...}}` 形式の JSON も受け付けます。
 
 | コマンド | 説明 |
 |---------|------|

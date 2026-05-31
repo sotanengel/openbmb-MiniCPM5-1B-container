@@ -33,9 +33,6 @@ BLOCKED_HOSTNAMES = frozenset(
     }
 )
 
-WEB_SEARCH_BASE_URL = "https://lite.duckduckgo.com/lite/"
-
-
 class HttpClientError(ValueError):
     """Raised when an HTTP request is rejected or fails safely."""
 
@@ -229,34 +226,11 @@ def extract_visible_text(html_content: str, max_chars: int) -> str:
     return text
 
 
-def _detect_search_bot_block(html_content: str) -> bool:
-    lowered = html_content.lower()
-    markers = (
-        "bots use duckduckgo",
-        "confirm this search was made by a human",
-        "unusual traffic",
-        "anomaly-modal",
-    )
-    return any(marker in lowered for marker in markers)
-
-
 def web_search(
     query: str,
     *,
     opener: urllib.request.OpenerDirector | None = None,
 ) -> str:
-    from minicpm_container.tools.limits import MAX_TOOL_RESULT_CHARS
+    from minicpm_container.tools.search_providers import run_web_search
 
-    require_network()
-    encoded = urllib.parse.urlencode({"q": query})
-    url = f"{WEB_SEARCH_BASE_URL}?{encoded}"
-    html_content = http_get(url, opener=opener)
-    if _detect_search_bot_block(html_content):
-        raise HttpClientError(
-            "search provider blocked automated access; "
-            "try a simpler query or http_get with a specific URL"
-        )
-    text = extract_visible_text(html_content, MAX_TOOL_RESULT_CHARS)
-    if not text.strip():
-        raise HttpClientError("search returned no readable text")
-    return text
+    return run_web_search(query, opener=opener)

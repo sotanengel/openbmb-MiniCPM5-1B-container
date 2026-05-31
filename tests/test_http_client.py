@@ -118,37 +118,13 @@ def test_extract_visible_text_strips_scripts() -> None:
     assert "bad" not in text
 
 
-def test_web_search_rejects_bot_challenge_page() -> None:
-    class FakeResponse:
-        headers = {}
-        _payload = b"<html>Please confirm bots use DuckDuckGo</html>"
-        _done = False
-
-        def getcode(self) -> int:
-            return 200
-
-        def read(self, size: int = -1) -> bytes:
-            if self._done:
-                return b""
-            self._done = True
-            return self._payload
-
-        def __enter__(self) -> FakeResponse:
-            return self
-
-        def __exit__(self, *args: object) -> None:
-            return None
-
-    class FakeOpener:
-        def open(self, request: object, timeout: float = 0) -> FakeResponse:
-            return FakeResponse()
-
+def test_web_search_delegates_to_search_providers() -> None:
     with (
         patch.dict(os.environ, {"CHAT_NETWORK_ENABLED": "1"}, clear=False),
         patch(
-            "minicpm_container.tools.http_client._resolve_host_ips",
-            return_value=[__import__("ipaddress").ip_address("93.184.216.34")],
+            "minicpm_container.tools.search_providers.run_web_search",
+            return_value="--- Wikipedia (ja) ---\n名探偵コナン",
         ),
     ):
-        with pytest.raises(HttpClientError, match="blocked"):
-            web_search("名探偵コナン", opener=FakeOpener())
+        result = web_search("名探偵コナン")
+    assert "名探偵コナン" in result

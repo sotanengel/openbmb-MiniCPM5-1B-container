@@ -48,6 +48,8 @@ def run_agent_turn(
                 )
                 continue
             final_text = parsed.normal_text or raw_content.strip()
+            if not final_text:
+                final_text = _fallback_from_tool_results(state)
             state.add_assistant_message(raw_content)
             return final_text
 
@@ -58,8 +60,14 @@ def run_agent_turn(
             state.add_tool_message(_format_tool_result(call.name, result))
 
         final_text = parsed.normal_text
+        if not final_text.strip():
+            state.add_user_message(
+                "Using the tool results above, answer the user concisely in their language. "
+                "Do not call any more tools."
+            )
 
-    return final_text or "(tool round limit reached)"
+    fallback = _fallback_from_tool_results(state)
+    return final_text or fallback or "(tool round limit reached)"
 
 
 def _should_nudge_for_tool_call(
@@ -88,6 +96,19 @@ def _single_shot(
     content = response.content.strip()
     state.add_assistant_message(content)
     return content
+
+
+def _fallback_from_tool_results(state: ConversationState) -> str:
+    """Use recent tool output when the model returns an empty final message."""
+    for message in reversed(state.messages):
+        if message.get("role") != "tool":
+            continue
+        content = message.get("content", "").strip()
+        if content and not content.lower().startswith("error:"):
+            if len(content) > 800:
+                return content[:800] + "…"
+            return content
+    return ""
 
 
 def _format_tool_result(tool_name: str, result: str) -> str:

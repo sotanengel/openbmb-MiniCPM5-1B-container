@@ -176,7 +176,10 @@ class GenerationConfig:
 
     def to_chat_request(self, messages: list[dict[str, str]]) -> ChatRequest:
         self.validate()
-        system_message = build_system_message(self.response_language)
+        system_message = build_system_message(
+            self.response_language,
+            enabled_tools=self.enabled_tools,
+        )
         request_messages = [system_message, *messages] if system_message else messages
         return ChatRequest(
             messages=request_messages,

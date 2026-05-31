@@ -19,14 +19,24 @@ def test_parse_tool_calls_returns_plain_text_when_no_xml() -> None:
 
 
 def test_parse_tool_calls_extracts_calculate() -> None:
-    text = (
-        'Answer: <function name="calculate">'
-        '<param name="expression">2+2</param></function>'
-    )
+    text = 'Answer: <function name="calculate">' '<param name="expression">2+2</param></function>'
     result = parse_tool_calls(text, _schemas())
     assert result.calls[0].name == "calculate"
     assert result.calls[0].arguments["expression"] == "2+2"
     assert "Answer:" in result.normal_text
+
+
+def test_parse_tool_calls_with_tool_call_wrapper() -> None:
+    text = (
+        "Let me calculate."
+        "<|im_sep|>"
+        '<tool_call><function name="calculate">'
+        '<param name="expression">17*23</param></function></tool_call>'
+    )
+    result = parse_tool_calls(text, _schemas())
+    assert result.calls[0].name == "calculate"
+    assert result.calls[0].arguments["expression"] == "17*23"
+    assert "function" not in result.normal_text.lower() or "calculate" in result.normal_text
 
 
 def test_parse_tool_calls_ignores_unknown_function() -> None:

@@ -11,6 +11,7 @@ from typing import Any
 
 BOT_TOKEN = "<function"
 EOT_TOKEN = "</function>"
+TOOL_CALL_REGEX = re.compile(r"<tool_call>.*?</tool_call>", re.DOTALL)
 FUNC_CALL_REGEX = re.compile(r"<function.*?</function>", re.DOTALL)
 FUNC_NAME_REGEX = re.compile(r'<function\s+name=[\'"]([^\'"]+)[\'"][^>]*>')
 PARAM_WITH_NAME_REGEX = re.compile(
@@ -155,8 +156,15 @@ def _parse_function_block(
     return ParsedToolCall(name=func_name, arguments=arguments)
 
 
+def _strip_tool_call_wrappers(text: str) -> str:
+    """Keep inner <function> blocks; drop <tool_call> wrapper tokens from normal text."""
+    return TOOL_CALL_REGEX.sub("", text)
+
+
 def parse_tool_calls(text: str, tool_schemas: list[dict[str, Any]] | None) -> ParseResult:
-    if not tool_schemas or BOT_TOKEN not in text:
+    if not tool_schemas:
+        return ParseResult(normal_text=text, calls=[])
+    if BOT_TOKEN not in text and "<tool_call>" not in text:
         return ParseResult(normal_text=text, calls=[])
 
     tool_names, allowed_props, required_props, prop_types = _schema_lookup(tool_schemas)
@@ -184,4 +192,7 @@ def parse_tool_calls(text: str, tool_schemas: list[dict[str, Any]] | None) -> Pa
     if last_end < len(text):
         normal_parts.append(text[last_end:])
 
-    return ParseResult(normal_text="".join(normal_parts).strip(), calls=calls)
+    normal_text = _strip_tool_call_wrappers("".join(normal_parts)).strip()
+    # Drop tool separator between prose and tool XML from normal text.
+    normal_text = normal_text.replace("<|im_sep|>", "").strip()
+    return ParseResult(normal_text=normal_text, calls=calls)

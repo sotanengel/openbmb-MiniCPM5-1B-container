@@ -108,6 +108,7 @@ pre-commit run --all-files
 
 - `trust_remote_code=False`（任意コード実行を禁止）
 - ツールは **ホワイトリストのみ**（デフォルト無効、`--tools` で明示有効化）
+- MiniCPM5 の `<function>` / `<param>` はトークナイザ上の special token のため、推論デコードでは `skip_special_tokens=False` が必須
 - ツール実行は **GET のみ**・SSRF ブロック・レスポンスサイズ上限（HTTP ツール）
 - メッセージ数・文字数・ `max_new_tokens` に上限
 - 平文パスワードはイメージに含めず、bcrypt ハッシュのみ埋め込み

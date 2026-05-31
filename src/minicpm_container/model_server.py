@@ -8,6 +8,7 @@ import socket
 import sys
 from pathlib import Path
 
+from minicpm_container.generation_decode import decode_generated_text
 from minicpm_container.protocol import (
     DEFAULT_SOCKET_PATH,
     ChatRequest,
@@ -72,8 +73,8 @@ class ModelEngine:
             )
             input_length = inputs["input_ids"].shape[-1]
             generated = outputs[0][input_length:]
-            content = self._tokenizer.decode(generated, skip_special_tokens=True)
-            return ChatResponse(content=content.strip())
+            content = decode_generated_text(self._tokenizer, generated)
+            return ChatResponse(content=content)
         except Exception as exc:  # noqa: BLE001 - return safe error to client
             logger.exception("Generation failed")
             return ChatResponse(content="", error=str(exc))

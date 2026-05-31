@@ -65,6 +65,7 @@ def test_model_engine_generate_passes_sampling_parameters() -> None:
     generated_ids.__getitem__.return_value = [generated_token]
     model.generate.return_value = [generated_ids]
     tokenizer.decode.return_value = "response"
+    # decode_generated_text calls decode with skip_special_tokens=False
 
     request = ChatRequest(
         messages=[{"role": "user", "content": "hello"}],

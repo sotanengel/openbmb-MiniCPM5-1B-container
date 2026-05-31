@@ -28,10 +28,7 @@ def test_agent_turn_executes_tool_and_continues() -> None:
     assert schemas is not None
 
     first = ChatResponse(
-        content=(
-            '<function name="calculate">'
-            '<param name="expression">1+1</param></function>'
-        ),
+        content=('<function name="calculate">' '<param name="expression">1+1</param></function>'),
     )
     second = ChatResponse(content="The answer is 2.")
     client = MagicMock()

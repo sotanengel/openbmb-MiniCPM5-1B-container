@@ -95,7 +95,7 @@ def execute_tool(name: str, arguments: dict[str, Any]) -> str:
             expression = _require_str(arguments, "expression")
             return _truncate(safe_calculate(expression))
         if name == "current_datetime":
-            return datetime.now(tz=timezone.utc).isoformat()
+            return datetime.now(tz=timezone.utc).isoformat()  # noqa: UP017
         if name == "count_text":
             text = _require_str(arguments, "text")
             if len(text) > MAX_TEXT_ARG_CHARS:

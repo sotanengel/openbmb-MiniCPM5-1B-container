@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 
 from minicpm_container.protocol import (
@@ -18,6 +19,14 @@ from minicpm_container.protocol import (
     MIN_TOP_P,
     ChatRequest,
 )
+from minicpm_container.system_prompt import (
+    RESPONSE_LANGUAGE_AUTO,
+    SUPPORTED_RESPONSE_LANGUAGES,
+    build_system_message,
+    validate_response_language,
+)
+
+RESPONSE_LANGUAGE_ENV = "CHAT_RESPONSE_LANGUAGE"
 
 
 def _bool_default_label(value: bool) -> str:
@@ -44,6 +53,12 @@ def format_generation_settings_help() -> str:
         "",
         "  top_p — nucleus sampling の累積確率上限",
         f"    デフォルト: {DEFAULT_TOP_P}  有効範囲: {MIN_TOP_P}〜{MAX_TOP_P}",
+        "",
+        "  response_language — 応答言語（auto でユーザー入力言語に追従）",
+        (
+            f"    デフォルト: {RESPONSE_LANGUAGE_AUTO}  入力: "
+            f"{', '.join(sorted(SUPPORTED_RESPONSE_LANGUAGES))}"
+        ),
         "",
         f"  （参考）会話上限: メッセージ数 {MAX_MESSAGES}、1メッセージ {MAX_MESSAGE_CHARS} 文字",
         "",
@@ -108,6 +123,25 @@ def _prompt_float(label: str, default: float, minimum: float, maximum: float) ->
         return value
 
 
+def _load_default_response_language() -> str:
+    env_value = os.environ.get(RESPONSE_LANGUAGE_ENV, "").strip()
+    if not env_value:
+        return RESPONSE_LANGUAGE_AUTO
+    return validate_response_language(env_value)
+
+
+def _prompt_response_language(default: str) -> str:
+    supported = ", ".join(sorted(SUPPORTED_RESPONSE_LANGUAGES))
+    while True:
+        raw = input(f"  response_language [{default}]: ")
+        if not raw.strip():
+            return default
+        try:
+            return validate_response_language(raw)
+        except ValueError:
+            print(f"  次のいずれかで入力してください: {supported}")
+
+
 @dataclass
 class GenerationConfig:
     max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS
@@ -115,6 +149,7 @@ class GenerationConfig:
     do_sample: bool = DEFAULT_DO_SAMPLE
     temperature: float = DEFAULT_TEMPERATURE
     top_p: float = DEFAULT_TOP_P
+    response_language: str = RESPONSE_LANGUAGE_AUTO
 
     @classmethod
     def defaults(cls) -> GenerationConfig:
@@ -127,11 +162,14 @@ class GenerationConfig:
             raise ValueError(f"temperature must be between {MIN_TEMPERATURE} and {MAX_TEMPERATURE}")
         if self.top_p < MIN_TOP_P or self.top_p > MAX_TOP_P:
             raise ValueError(f"top_p must be between {MIN_TOP_P} and {MAX_TOP_P}")
+        validate_response_language(self.response_language)
 
     def to_chat_request(self, messages: list[dict[str, str]]) -> ChatRequest:
         self.validate()
+        system_message = build_system_message(self.response_language)
+        request_messages = [system_message, *messages] if system_message else messages
         return ChatRequest(
-            messages=messages,
+            messages=request_messages,
             max_new_tokens=self.max_new_tokens,
             enable_thinking=self.enable_thinking,
             do_sample=self.do_sample,
@@ -145,13 +183,15 @@ class GenerationConfig:
             f"enable_thinking={str(self.enable_thinking).lower()}, "
             f"do_sample={str(self.do_sample).lower()}, "
             f"temperature={self.temperature}, "
-            f"top_p={self.top_p}"
+            f"top_p={self.top_p}, "
+            f"response_language={self.response_language}"
         )
 
 
 def prompt_generation_config() -> GenerationConfig:
     print("\nパスワード認証に成功しました。")
     print_generation_settings_help()
+    default_response_language = _load_default_response_language()
     config = GenerationConfig(
         max_new_tokens=_prompt_int("max_new_tokens", DEFAULT_MAX_NEW_TOKENS, 1, MAX_NEW_TOKENS),
         enable_thinking=_prompt_bool("enable_thinking", False),
@@ -160,6 +200,7 @@ def prompt_generation_config() -> GenerationConfig:
             "temperature", DEFAULT_TEMPERATURE, MIN_TEMPERATURE, MAX_TEMPERATURE
         ),
         top_p=_prompt_float("top_p", DEFAULT_TOP_P, MIN_TOP_P, MAX_TOP_P),
+        response_language=_prompt_response_language(default_response_language),
     )
     config.validate()
     print(f"\n設定: {config.summary()}\n")

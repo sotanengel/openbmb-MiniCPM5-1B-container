@@ -7,6 +7,7 @@ from unittest.mock import patch
 import pytest
 
 from minicpm_container.generation_config import (
+    RESPONSE_LANGUAGE_ENV,
     GenerationConfig,
     format_generation_settings_help,
     prompt_generation_config,
@@ -24,6 +25,7 @@ from minicpm_container.protocol import (
     MIN_TEMPERATURE,
     MIN_TOP_P,
 )
+from minicpm_container.system_prompt import RESPONSE_LANGUAGE_AUTO
 
 
 def test_generation_config_defaults() -> None:
@@ -33,6 +35,7 @@ def test_generation_config_defaults() -> None:
     assert config.do_sample is DEFAULT_DO_SAMPLE
     assert config.temperature == DEFAULT_TEMPERATURE
     assert config.top_p == DEFAULT_TOP_P
+    assert config.response_language == RESPONSE_LANGUAGE_AUTO
 
 
 def test_generation_config_validate_rejects_invalid_max_new_tokens() -> None:
@@ -44,6 +47,12 @@ def test_generation_config_validate_rejects_invalid_max_new_tokens() -> None:
 def test_generation_config_validate_rejects_invalid_temperature() -> None:
     config = GenerationConfig(temperature=5.0)
     with pytest.raises(ValueError, match="temperature"):
+        config.validate()
+
+
+def test_generation_config_validate_rejects_invalid_response_language() -> None:
+    config = GenerationConfig(response_language="invalid")
+    with pytest.raises(ValueError, match="response_language"):
         config.validate()
 
 
@@ -61,6 +70,15 @@ def test_generation_config_to_chat_request() -> None:
     assert request.do_sample is False
     assert request.temperature == 0.5
     assert request.top_p == 0.8
+    assert request.messages[0]["role"] == "system"
+    assert request.messages[1] == {"role": "user", "content": "hello"}
+
+
+def test_generation_config_to_chat_request_prepends_system_for_empty_history() -> None:
+    config = GenerationConfig(response_language="ja")
+    request = config.to_chat_request([{"role": "user", "content": "こんにちは"}])
+    assert request.messages[0]["role"] == "system"
+    assert "Japanese" in request.messages[0]["content"]
 
 
 def test_generation_config_summary() -> None:
@@ -68,6 +86,7 @@ def test_generation_config_summary() -> None:
     summary = config.summary()
     assert "max_new_tokens=128" in summary
     assert "enable_thinking=false" in summary
+    assert "response_language=auto" in summary
 
 
 def test_format_generation_settings_help_includes_defaults_and_ranges() -> None:
@@ -77,6 +96,8 @@ def test_format_generation_settings_help_includes_defaults_and_ranges() -> None:
     assert "do_sample" in help_text
     assert "temperature" in help_text
     assert "top_p" in help_text
+    assert "response_language" in help_text
+    assert RESPONSE_LANGUAGE_AUTO in help_text
     assert str(DEFAULT_MAX_NEW_TOKENS) in help_text
     assert str(MAX_NEW_TOKENS) in help_text
     assert str(DEFAULT_TEMPERATURE) in help_text
@@ -91,7 +112,7 @@ def test_format_generation_settings_help_includes_defaults_and_ranges() -> None:
 
 
 def test_prompt_generation_config_prints_help_before_prompts(capsys) -> None:
-    with patch("builtins.input", side_effect=["", "", "", "", ""]):
+    with patch("builtins.input", side_effect=["", "", "", "", "", ""]):
         prompt_generation_config()
     captured = capsys.readouterr().out
     help_marker = "有効範囲: 1〜512"
@@ -102,15 +123,22 @@ def test_prompt_generation_config_prints_help_before_prompts(capsys) -> None:
 
 
 def test_prompt_generation_config_uses_defaults_on_empty_input() -> None:
-    with patch("builtins.input", side_effect=["", "", "", "", ""]):
+    with patch("builtins.input", side_effect=["", "", "", "", "", ""]):
         config = prompt_generation_config()
     assert config == GenerationConfig.defaults()
+
+
+def test_prompt_generation_config_uses_env_default_for_response_language() -> None:
+    with patch.dict("os.environ", {RESPONSE_LANGUAGE_ENV: "ja"}):
+        with patch("builtins.input", side_effect=["", "", "", "", "", ""]):
+            config = prompt_generation_config()
+    assert config.response_language == "ja"
 
 
 def test_prompt_generation_config_accepts_custom_values() -> None:
     with patch(
         "builtins.input",
-        side_effect=["256", "yes", "no", "0.5", "0.8"],
+        side_effect=["256", "yes", "no", "0.5", "0.8", "en"],
     ):
         config = prompt_generation_config()
     assert config.max_new_tokens == 256
@@ -118,12 +146,14 @@ def test_prompt_generation_config_accepts_custom_values() -> None:
     assert config.do_sample is False
     assert config.temperature == 0.5
     assert config.top_p == 0.8
+    assert config.response_language == "en"
 
 
 def test_prompt_generation_config_retries_invalid_input() -> None:
     with patch(
         "builtins.input",
-        side_effect=["abc", "256", "", "", "", ""],
+        side_effect=["abc", "256", "", "", "", "", "xx", "ja"],
     ):
         config = prompt_generation_config()
     assert config.max_new_tokens == 256
+    assert config.response_language == "ja"

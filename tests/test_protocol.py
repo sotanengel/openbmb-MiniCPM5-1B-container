@@ -179,3 +179,38 @@ def test_conversation_state_sanitizes_user_message() -> None:
     state = ConversationState()
     state.add_user_message("名探偵\ud800コナン")
     assert state.messages[0]["content"] == "名探偵\ufffdコナン"
+
+
+def test_conversation_state_messages_snapshot_is_copy() -> None:
+    state = ConversationState()
+    state.add_user_message("Hi")
+    snapshot = state.messages_snapshot()
+    snapshot.append({"role": "assistant", "content": "ignored"})
+    assert len(state.messages) == 1
+
+
+def test_conversation_state_rollback_last_message() -> None:
+    state = ConversationState()
+    state.add_user_message("Hi")
+    state.rollback_last_message()
+    assert state.messages == []
+
+
+def test_conversation_state_has_tool_results_since() -> None:
+    state = ConversationState()
+    state.add_user_message("search")
+    user_index = state.user_turn_index()
+    assert state.has_tool_results_since(user_index) is False
+    state.add_tool_message("result")
+    assert state.has_tool_results_since(user_index) is True
+
+
+def test_conversation_state_latest_tool_result_fallback() -> None:
+    from minicpm_container.tools.limits import MAX_FALLBACK_TOOL_RESULT_CHARS
+
+    state = ConversationState()
+    state.add_tool_message("calculate: 42")
+    assert state.latest_tool_result_fallback(MAX_FALLBACK_TOOL_RESULT_CHARS) == "calculate: 42"
+    state.add_tool_message("error: failed")
+    assert state.latest_tool_result_fallback(MAX_FALLBACK_TOOL_RESULT_CHARS) == "calculate: 42"
+

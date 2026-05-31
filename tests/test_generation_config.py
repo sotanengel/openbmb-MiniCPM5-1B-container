@@ -10,6 +10,8 @@ from minicpm_container.generation_config import (
     CHAT_ENABLE_THINKING_ENV,
     RESPONSE_LANGUAGE_ENV,
     GenerationConfig,
+)
+from minicpm_container.generation_config_prompt import (
     format_generation_settings_help,
     prompt_generation_config,
 )

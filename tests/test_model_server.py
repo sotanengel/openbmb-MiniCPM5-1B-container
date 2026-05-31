@@ -5,7 +5,8 @@ from __future__ import annotations
 import socket
 from unittest.mock import MagicMock
 
-from minicpm_container.model_server import ModelEngine, _handle_client
+from minicpm_container.model_engine import ModelEngine
+from minicpm_container.model_server import _handle_client
 from minicpm_container.protocol import ChatRequest, ChatResponse
 
 

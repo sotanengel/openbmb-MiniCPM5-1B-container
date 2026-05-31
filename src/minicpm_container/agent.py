@@ -22,7 +22,7 @@ def run_agent_turn(
 ) -> str:
     """Process one user message, running tool rounds until completion."""
     state.add_user_message(user_text)
-    user_turn_index = len(state.messages) - 1
+    user_turn_index = state.user_turn_index()
     tool_schemas = get_tool_schemas(config.enabled_tools)
     if not tool_schemas:
         return _single_shot(client, config, state)
@@ -30,10 +30,10 @@ def run_agent_turn(
     final_text = ""
     nudge_used = False
     for _round in range(MAX_TOOL_ROUNDS):
-        request = config.to_chat_request(list(state.messages))
+        request = config.to_chat_request(state.messages_snapshot())
         response = client.send(request)
         if response.error:
-            state.messages.pop()
+            state.rollback_last_message()
             raise ProtocolError(response.error)
 
         raw_content = response.content
@@ -52,7 +52,7 @@ def run_agent_turn(
                 continue
             final_text = parsed.normal_text or raw_content.strip()
             if not final_text:
-                final_text = _fallback_from_tool_results(state)
+                final_text = state.latest_tool_result_fallback(MAX_FALLBACK_TOOL_RESULT_CHARS)
             state.add_assistant_message(raw_content)
             return final_text
 
@@ -69,16 +69,8 @@ def run_agent_turn(
                 "Do not call any more tools."
             )
 
-    fallback = _fallback_from_tool_results(state)
+    fallback = state.latest_tool_result_fallback(MAX_FALLBACK_TOOL_RESULT_CHARS)
     return final_text or fallback or "(tool round limit reached)"
-
-
-def _has_tool_results_for_turn(state: ConversationState, user_turn_index: int) -> bool:
-    """True if a tool message exists after the user message that started this turn."""
-    for message in state.messages[user_turn_index + 1 :]:
-        if message.get("role") == "tool":
-            return True
-    return False
 
 
 def _should_nudge_for_tool_call(
@@ -91,7 +83,7 @@ def _should_nudge_for_tool_call(
     """Retry once when tools are enabled but the model answered without calling them."""
     if parse_tool_calls(content, tool_schemas).calls:
         return False
-    if _has_tool_results_for_turn(state, user_turn_index):
+    if state.has_tool_results_since(user_turn_index):
         return False
     if "<function" in content or "<tool_call>" in content or '"name"' in content:
         return False
@@ -146,26 +138,13 @@ def _single_shot(
     config: GenerationConfig,
     state: ConversationState,
 ) -> str:
-    response = client.send(config.to_chat_request(list(state.messages)))
+    response = client.send(config.to_chat_request(state.messages_snapshot()))
     if response.error:
-        state.messages.pop()
+        state.rollback_last_message()
         raise ProtocolError(response.error)
     content = response.content.strip()
     state.add_assistant_message(content)
     return content
-
-
-def _fallback_from_tool_results(state: ConversationState) -> str:
-    """Use recent tool output when the model returns an empty final message."""
-    for message in reversed(state.messages):
-        if message.get("role") != "tool":
-            continue
-        content = message.get("content", "").strip()
-        if content and not content.lower().startswith("error:"):
-            if len(content) > MAX_FALLBACK_TOOL_RESULT_CHARS:
-                return content[:MAX_FALLBACK_TOOL_RESULT_CHARS] + "…"
-            return content
-    return ""
 
 
 def _format_tool_result(tool_name: str, result: str) -> str:

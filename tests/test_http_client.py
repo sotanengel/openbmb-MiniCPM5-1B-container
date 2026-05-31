@@ -11,7 +11,6 @@ from minicpm_container.tools.http_client import (
     HttpClientError,
     http_get,
     validate_url,
-    web_search,
 )
 
 
@@ -111,6 +110,8 @@ def test_http_get_rejects_oversized_body() -> None:
 
 
 def test_web_search_delegates_to_search_providers() -> None:
+    from minicpm_container.tools.search_providers import web_search
+
     with (
         patch.dict(os.environ, {"CHAT_NETWORK_ENABLED": "1"}, clear=False),
         patch(

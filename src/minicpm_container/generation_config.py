@@ -9,6 +9,8 @@ from minicpm_container.protocol import (
     DEFAULT_MAX_NEW_TOKENS,
     DEFAULT_TEMPERATURE,
     DEFAULT_TOP_P,
+    MAX_MESSAGE_CHARS,
+    MAX_MESSAGES,
     MAX_NEW_TOKENS,
     MAX_TEMPERATURE,
     MAX_TOP_P,
@@ -16,6 +18,41 @@ from minicpm_container.protocol import (
     MIN_TOP_P,
     ChatRequest,
 )
+
+
+def _bool_default_label(value: bool) -> str:
+    return "yes" if value else "no"
+
+
+def format_generation_settings_help() -> str:
+    do_sample_default = _bool_default_label(DEFAULT_DO_SAMPLE)
+    lines = [
+        "",
+        "生成設定（Enter でデフォルト）:",
+        "",
+        "  max_new_tokens — 1回の応答で生成する最大トークン数",
+        f"    デフォルト: {DEFAULT_MAX_NEW_TOKENS}  有効範囲: 1〜{MAX_NEW_TOKENS}",
+        "",
+        "  enable_thinking — 思考モード（apply_chat_template の reasoning）",
+        "    デフォルト: no  入力: yes / no",
+        "",
+        "  do_sample — サンプリングの有無（no で greedy / 決定的生成）",
+        f"    デフォルト: {do_sample_default}  入力: yes / no",
+        "",
+        "  temperature — サンプリング時の多様性（高いほどランダム）",
+        f"    デフォルト: {DEFAULT_TEMPERATURE}  有効範囲: {MIN_TEMPERATURE}〜{MAX_TEMPERATURE}",
+        "",
+        "  top_p — nucleus sampling の累積確率上限",
+        f"    デフォルト: {DEFAULT_TOP_P}  有効範囲: {MIN_TOP_P}〜{MAX_TOP_P}",
+        "",
+        f"  （参考）会話上限: メッセージ数 {MAX_MESSAGES}、1メッセージ {MAX_MESSAGE_CHARS} 文字",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def print_generation_settings_help() -> None:
+    print(format_generation_settings_help())
 
 
 def _parse_bool(value: str, default: bool) -> bool:
@@ -87,9 +124,7 @@ class GenerationConfig:
         if self.max_new_tokens < 1 or self.max_new_tokens > MAX_NEW_TOKENS:
             raise ValueError(f"max_new_tokens must be between 1 and {MAX_NEW_TOKENS}")
         if self.temperature < MIN_TEMPERATURE or self.temperature > MAX_TEMPERATURE:
-            raise ValueError(
-                f"temperature must be between {MIN_TEMPERATURE} and {MAX_TEMPERATURE}"
-            )
+            raise ValueError(f"temperature must be between {MIN_TEMPERATURE} and {MAX_TEMPERATURE}")
         if self.top_p < MIN_TOP_P or self.top_p > MAX_TOP_P:
             raise ValueError(f"top_p must be between {MIN_TOP_P} and {MAX_TOP_P}")
 
@@ -116,7 +151,7 @@ class GenerationConfig:
 
 def prompt_generation_config() -> GenerationConfig:
     print("\nパスワード認証に成功しました。")
-    print("\n生成設定（Enter でデフォルト）:")
+    print_generation_settings_help()
     config = GenerationConfig(
         max_new_tokens=_prompt_int("max_new_tokens", DEFAULT_MAX_NEW_TOKENS, 1, MAX_NEW_TOKENS),
         enable_thinking=_prompt_bool("enable_thinking", False),

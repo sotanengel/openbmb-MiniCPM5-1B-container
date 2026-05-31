@@ -43,6 +43,20 @@ def test_should_nudge_for_prose_tool_intent() -> None:
     assert _has_tool_results_for_turn(state, user_turn_index)
 
 
+def test_should_not_nudge_for_unrelated_prose_with_tools_enabled() -> None:
+    schemas = get_tool_schemas(("web_search",))
+    assert schemas is not None
+    state = ConversationState()
+    state.add_user_message("名探偵コナンって何?")
+    assert not _should_nudge_for_tool_call(
+        "名探偵コナンは青山剛昌による推理漫画です。",
+        schemas,
+        state,
+        ("web_search",),
+        0,
+    )
+
+
 def test_agent_nudge_then_executes_tool() -> None:
     prose = ChatResponse(content="I will use the calculate tool to compute 17*23.")
     xml = ChatResponse(

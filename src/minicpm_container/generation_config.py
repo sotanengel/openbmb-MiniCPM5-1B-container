@@ -33,6 +33,20 @@ from minicpm_container.tools.registry import (
 )
 
 RESPONSE_LANGUAGE_ENV = "CHAT_RESPONSE_LANGUAGE"
+CHAT_ENABLE_THINKING_ENV = "CHAT_ENABLE_THINKING"
+THINKING_MODE_HYBRID = "hybrid"
+
+
+def resolve_template_enable_thinking() -> bool | None:
+    """Map CHAT_ENABLE_THINKING to template flag; omitted (None) = official Hybrid mode."""
+    raw = os.environ.get(CHAT_ENABLE_THINKING_ENV, "").strip().lower()
+    if not raw:
+        return None
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    return None
 
 
 def _bool_default_label(value: bool) -> str:
@@ -48,8 +62,8 @@ def format_generation_settings_help() -> str:
         "  max_new_tokens — 1回の応答で生成する最大トークン数",
         f"    デフォルト: {DEFAULT_MAX_NEW_TOKENS}  有効範囲: 1〜{MAX_NEW_TOKENS}",
         "",
-        "  enable_thinking — 思考モード（apply_chat_template の reasoning）",
-        "    デフォルト: no  入力: yes / no",
+        "  thinking_mode — Hybrid 思考（固定）",
+        "    モデルが思考ブロックの要否を判断（公式 MiniCPM5 と同様）",
         "",
         "  do_sample — サンプリングの有無（no で greedy / 決定的生成）",
         f"    デフォルト: {do_sample_default}  入力: yes / no",
@@ -154,7 +168,7 @@ def _prompt_response_language(default: str) -> str:
 @dataclass
 class GenerationConfig:
     max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS
-    enable_thinking: bool = False
+    template_enable_thinking: bool | None = None
     do_sample: bool = DEFAULT_DO_SAMPLE
     temperature: float = DEFAULT_TEMPERATURE
     top_p: float = DEFAULT_TOP_P
@@ -163,7 +177,7 @@ class GenerationConfig:
 
     @classmethod
     def defaults(cls) -> GenerationConfig:
-        return cls()
+        return cls(template_enable_thinking=resolve_template_enable_thinking())
 
     def validate(self) -> None:
         if self.max_new_tokens < 1 or self.max_new_tokens > MAX_NEW_TOKENS:
@@ -184,7 +198,7 @@ class GenerationConfig:
         return ChatRequest(
             messages=request_messages,
             max_new_tokens=self.max_new_tokens,
-            enable_thinking=self.enable_thinking,
+            enable_thinking=self.template_enable_thinking,
             do_sample=self.do_sample,
             temperature=self.temperature,
             top_p=self.top_p,
@@ -192,9 +206,13 @@ class GenerationConfig:
         )
 
     def summary(self) -> str:
+        if self.template_enable_thinking is None:
+            thinking_label = THINKING_MODE_HYBRID
+        else:
+            thinking_label = str(self.template_enable_thinking).lower()
         return (
             f"max_new_tokens={self.max_new_tokens}, "
-            f"enable_thinking={str(self.enable_thinking).lower()}, "
+            f"thinking_mode={thinking_label}, "
             f"do_sample={str(self.do_sample).lower()}, "
             f"temperature={self.temperature}, "
             f"top_p={self.top_p}, "
@@ -233,14 +251,6 @@ def prompt_generation_config(
         resolved_tools = _prompt_enabled_tools(resolved_tools)
 
     max_new_tokens = _prompt_int("max_new_tokens", DEFAULT_MAX_NEW_TOKENS, 1, MAX_NEW_TOKENS)
-    if resolved_tools:
-        print(
-            "  enable_thinking [no]: ツール利用時は安定性のため no に固定 "
-            "(思考モードはツール呼び出しを妨げやすいです)。"
-        )
-        enable_thinking = False
-    else:
-        enable_thinking = _prompt_bool("enable_thinking", False)
     do_sample = _prompt_bool("do_sample", DEFAULT_DO_SAMPLE)
     temperature = _prompt_float(
         "temperature", DEFAULT_TEMPERATURE, MIN_TEMPERATURE, MAX_TEMPERATURE
@@ -250,7 +260,7 @@ def prompt_generation_config(
 
     config = GenerationConfig(
         max_new_tokens=max_new_tokens,
-        enable_thinking=enable_thinking,
+        template_enable_thinking=resolve_template_enable_thinking(),
         do_sample=do_sample,
         temperature=temperature,
         top_p=top_p,

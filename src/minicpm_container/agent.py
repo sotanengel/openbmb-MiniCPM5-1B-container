@@ -94,29 +94,49 @@ def _should_nudge_for_tool_call(
         return False
     if "<function" in content or "<tool_call>" in content or '"name"' in content:
         return False
-    return bool(enabled_tools)
+    return _prose_signals_tool_intent(content, enabled_tools)
+
+
+_TOOL_INTENT_MARKERS = (
+    "will use",
+    "i'll use",
+    "going to use",
+    "let me use",
+    "need to use",
+    "using the ",
+)
+
+
+def _prose_signals_tool_intent(content: str, enabled_tools: tuple[str, ...]) -> bool:
+    """True when the model clearly promised a tool call but did not emit one."""
+    lowered = content.lower()
+    if not any(marker in lowered for marker in _TOOL_INTENT_MARKERS):
+        return False
+    if "tool" in lowered:
+        return True
+    for tool_id in enabled_tools:
+        if tool_id in lowered or tool_id.replace("_", " ") in lowered:
+            return True
+    return False
 
 
 def _tool_call_nudge_message(enabled_tools: tuple[str, ...]) -> str:
     if "web_search" in enabled_tools:
         return (
-            'Call web_search now. JSON example: '
-            '{"name":"web_search","arguments":{"query":"USER_TOPIC"}}. '
-            "Replace USER_TOPIC with the search terms from the user's question. "
-            "Do not answer from memory; output only the tool call."
+            "You indicated you would search. If needed, call web_search, e.g. "
+            '{"name":"web_search","arguments":{"query":"..."}}.'
         )
     if len(enabled_tools) == 1:
         tool_id = enabled_tools[0]
         return (
-            f'Call {tool_id} now as XML '
+            f"You indicated you would use {tool_id}. If needed, emit XML "
             f'(<function name="{tool_id}"><param name="...">...</param></function>) '
-            "or JSON. Do not explain; output only the tool call."
+            "or JSON."
         )
     return (
-        "Emit the required tool call as XML "
+        "You indicated you would use a tool. If needed, emit XML "
         '(<function name="..."><param name="...">...</param></function>) '
-        'or JSON ({"name":"...","arguments":{...}}). '
-        "Do not explain; output only the tool call."
+        'or JSON ({"name":"...","arguments":{...}}).'
     )
 
 

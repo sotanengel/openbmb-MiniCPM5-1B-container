@@ -7,6 +7,7 @@ from unittest.mock import patch
 import pytest
 
 from minicpm_container.generation_config import (
+    CHAT_ENABLE_THINKING_ENV,
     RESPONSE_LANGUAGE_ENV,
     GenerationConfig,
     format_generation_settings_help,
@@ -31,7 +32,7 @@ from minicpm_container.system_prompt import RESPONSE_LANGUAGE_AUTO
 def test_generation_config_defaults() -> None:
     config = GenerationConfig.defaults()
     assert config.max_new_tokens == DEFAULT_MAX_NEW_TOKENS
-    assert config.enable_thinking is False
+    assert config.template_enable_thinking is None
     assert config.do_sample is DEFAULT_DO_SAMPLE
     assert config.temperature == DEFAULT_TEMPERATURE
     assert config.top_p == DEFAULT_TOP_P
@@ -59,7 +60,7 @@ def test_generation_config_validate_rejects_invalid_response_language() -> None:
 def test_generation_config_to_chat_request() -> None:
     config = GenerationConfig(
         max_new_tokens=256,
-        enable_thinking=True,
+        template_enable_thinking=True,
         do_sample=False,
         temperature=0.5,
         top_p=0.8,
@@ -88,14 +89,14 @@ def test_generation_config_summary() -> None:
     config = GenerationConfig.defaults()
     summary = config.summary()
     assert "max_new_tokens=128" in summary
-    assert "enable_thinking=false" in summary
+    assert "thinking_mode=hybrid" in summary
     assert "response_language=auto" in summary
 
 
 def test_format_generation_settings_help_includes_defaults_and_ranges() -> None:
     help_text = format_generation_settings_help()
     assert "max_new_tokens" in help_text
-    assert "enable_thinking" in help_text
+    assert "thinking_mode" in help_text
     assert "enabled_tools" in help_text
     assert "do_sample" in help_text
     assert "temperature" in help_text
@@ -116,7 +117,7 @@ def test_format_generation_settings_help_includes_defaults_and_ranges() -> None:
 
 
 def test_prompt_generation_config_prints_help_before_prompts(capsys) -> None:
-    with patch("builtins.input", side_effect=["", "", "", "", "", ""]):
+    with patch("builtins.input", side_effect=["", "", "", "", ""]):
         prompt_generation_config()
     captured = capsys.readouterr().out
     help_marker = "有効範囲: 1〜512"
@@ -127,14 +128,14 @@ def test_prompt_generation_config_prints_help_before_prompts(capsys) -> None:
 
 
 def test_prompt_generation_config_uses_defaults_on_empty_input() -> None:
-    with patch("builtins.input", side_effect=["", "", "", "", "", ""]):
+    with patch("builtins.input", side_effect=["", "", "", "", ""]):
         config = prompt_generation_config()
     assert config == GenerationConfig.defaults()
 
 
 def test_prompt_generation_config_uses_env_default_for_response_language() -> None:
     with patch.dict("os.environ", {RESPONSE_LANGUAGE_ENV: "ja"}):
-        with patch("builtins.input", side_effect=["", "", "", "", "", ""]):
+        with patch("builtins.input", side_effect=["", "", "", "", ""]):
             config = prompt_generation_config()
     assert config.response_language == "ja"
 
@@ -142,30 +143,37 @@ def test_prompt_generation_config_uses_env_default_for_response_language() -> No
 def test_prompt_generation_config_accepts_custom_values() -> None:
     with patch(
         "builtins.input",
-        side_effect=["256", "yes", "no", "0.5", "0.8", "en"],
+        side_effect=["256", "no", "0.5", "0.8", "en"],
     ):
         config = prompt_generation_config()
     assert config.max_new_tokens == 256
-    assert config.enable_thinking is True
+    assert config.template_enable_thinking is None
     assert config.do_sample is False
     assert config.temperature == 0.5
     assert config.top_p == 0.8
     assert config.response_language == "en"
 
 
-def test_prompt_generation_config_disables_thinking_when_tools_enabled(capsys) -> None:
-    with patch("builtins.input", side_effect=["", "", "", "", "", ""]):
+def test_prompt_generation_config_hybrid_thinking_with_tools() -> None:
+    with patch("builtins.input", side_effect=["", "", "", "", ""]):
         config = prompt_generation_config(enabled_tools=("web_search",))
-    assert config.enable_thinking is False
+    assert config.template_enable_thinking is None
     assert config.enabled_tools == ("web_search",)
-    captured = capsys.readouterr().out
-    assert "固定" in captured
+    request = config.to_chat_request([{"role": "user", "content": "hi"}])
+    assert request.enable_thinking is None
+    assert "enable_thinking" not in request.to_json()
+
+
+def test_resolve_template_enable_thinking_from_env() -> None:
+    with patch.dict("os.environ", {CHAT_ENABLE_THINKING_ENV: "0"}):
+        config = GenerationConfig.defaults()
+    assert config.template_enable_thinking is False
 
 
 def test_prompt_generation_config_retries_invalid_input() -> None:
     with patch(
         "builtins.input",
-        side_effect=["abc", "256", "", "", "", "", "xx", "ja"],
+        side_effect=["abc", "256", "", "", "", "xx", "ja"],
     ):
         config = prompt_generation_config()
     assert config.max_new_tokens == 256

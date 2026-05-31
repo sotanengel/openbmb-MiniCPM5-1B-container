@@ -80,6 +80,7 @@ def test_model_engine_generate_passes_sampling_parameters() -> None:
     assert response.content == "response"
     template_kwargs = tokenizer.apply_chat_template.call_args.kwargs
     assert "tools" not in template_kwargs
+    assert "enable_thinking" not in template_kwargs
     generate_kwargs = model.generate.call_args.kwargs
     assert generate_kwargs["max_new_tokens"] == 64
     assert generate_kwargs["do_sample"] is False

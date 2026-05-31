@@ -50,11 +50,11 @@ class ModelEngine:
             return ChatResponse(content="", error="model not loaded")
 
         try:
-            template_kwargs: dict[str, object] = {
-                "enable_thinking": request.enable_thinking,
-            }
+            template_kwargs: dict[str, object] = {}
             if request.tools:
                 template_kwargs["tools"] = request.tools
+            if request.enable_thinking is not None:
+                template_kwargs["enable_thinking"] = request.enable_thinking
             inputs = self._tokenizer.apply_chat_template(
                 request.messages,
                 tokenize=True,

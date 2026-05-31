@@ -38,7 +38,7 @@ ALLOWED_MESSAGE_ROLES = frozenset({"user", "assistant", "system", "tool"})
 class ChatRequest:
     messages: list[dict[str, str]]
     max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS
-    enable_thinking: bool = False
+    enable_thinking: bool | None = None
     do_sample: bool = DEFAULT_DO_SAMPLE
     temperature: float = DEFAULT_TEMPERATURE
     top_p: float = DEFAULT_TOP_P
@@ -48,11 +48,12 @@ class ChatRequest:
         payload: dict[str, Any] = {
             "messages": self.messages,
             "max_new_tokens": self.max_new_tokens,
-            "enable_thinking": self.enable_thinking,
             "do_sample": self.do_sample,
             "temperature": self.temperature,
             "top_p": self.top_p,
         }
+        if self.enable_thinking is not None:
+            payload["enable_thinking"] = self.enable_thinking
         if self.tools is not None:
             payload["tools"] = self.tools
         return json.dumps(payload, ensure_ascii=False)
@@ -99,9 +100,13 @@ class ChatRequest:
         if max_new_tokens > MAX_NEW_TOKENS:
             raise ProtocolError(f"max_new_tokens exceeds limit of {MAX_NEW_TOKENS}")
 
-        enable_thinking = data.get("enable_thinking", False)
-        if not isinstance(enable_thinking, bool):
-            raise ProtocolError("enable_thinking must be a boolean")
+        enable_thinking = data.get("enable_thinking")
+        if enable_thinking is None:
+            normalized_thinking: bool | None = None
+        elif isinstance(enable_thinking, bool):
+            normalized_thinking = enable_thinking
+        else:
+            raise ProtocolError("enable_thinking must be a boolean or omitted")
 
         do_sample = data.get("do_sample", DEFAULT_DO_SAMPLE)
         if not isinstance(do_sample, bool):
@@ -137,7 +142,7 @@ class ChatRequest:
         return cls(
             messages=normalized,
             max_new_tokens=max_new_tokens,
-            enable_thinking=enable_thinking,
+            enable_thinking=normalized_thinking,
             do_sample=do_sample,
             temperature=temperature,
             top_p=top_p,

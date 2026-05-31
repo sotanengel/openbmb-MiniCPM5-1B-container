@@ -36,7 +36,6 @@ stdin = "\n".join(
         password,
         max_tokens,
         "no",
-        "no",
         "",
         "",
         "",

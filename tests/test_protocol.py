@@ -24,7 +24,7 @@ def test_chat_request_roundtrip() -> None:
     restored = ChatRequest.from_json(request.to_json())
     assert restored.messages == request.messages
     assert restored.max_new_tokens == 64
-    assert restored.enable_thinking is False
+    assert restored.enable_thinking is None
     assert restored.tools == request.tools
 
 
@@ -86,6 +86,12 @@ def test_invalid_json_raises_protocol_error() -> None:
 
     with pytest.raises(ProtocolError, match="JSON object"):
         ChatResponse.from_json("[]")
+
+
+def test_chat_request_omits_enable_thinking_when_hybrid() -> None:
+    request = ChatRequest(messages=[{"role": "user", "content": "Hello"}])
+    payload = request.to_json()
+    assert "enable_thinking" not in payload
 
 
 def test_chat_request_roundtrip_with_sampling_fields() -> None:

@@ -65,6 +65,7 @@ def test_model_engine_generate_passes_sampling_parameters() -> None:
     generated_ids.__getitem__.return_value = [generated_token]
     model.generate.return_value = [generated_ids]
     tokenizer.decode.return_value = "response"
+    # decode_generated_text calls decode with skip_special_tokens=False
 
     request = ChatRequest(
         messages=[{"role": "user", "content": "hello"}],
@@ -77,8 +78,42 @@ def test_model_engine_generate_passes_sampling_parameters() -> None:
 
     assert response.error is None
     assert response.content == "response"
+    template_kwargs = tokenizer.apply_chat_template.call_args.kwargs
+    assert "tools" not in template_kwargs
+    assert "enable_thinking" not in template_kwargs
     generate_kwargs = model.generate.call_args.kwargs
     assert generate_kwargs["max_new_tokens"] == 64
     assert generate_kwargs["do_sample"] is False
     assert generate_kwargs["temperature"] == 0.5
     assert generate_kwargs["top_p"] == 0.8
+
+
+def test_model_engine_passes_tools_to_chat_template() -> None:
+    engine = ModelEngine("/tmp/model")
+    tokenizer = MagicMock()
+    model = MagicMock()
+    engine._tokenizer = tokenizer
+    engine._model = model
+
+    input_ids = MagicMock()
+    input_ids.shape = [1, 4]
+    template_output = MagicMock()
+    template_output.to.return_value = {"input_ids": input_ids}
+    tokenizer.apply_chat_template.return_value = template_output
+    model.device = "cpu"
+
+    generated_token = MagicMock()
+    generated_ids = MagicMock()
+    generated_ids.__getitem__.return_value = [generated_token]
+    model.generate.return_value = [generated_ids]
+    tokenizer.decode.return_value = "ok"
+
+    tools = [{"type": "function", "function": {"name": "calculate", "parameters": {}}}]
+    request = ChatRequest(
+        messages=[{"role": "user", "content": "hi"}],
+        tools=tools,
+    )
+    engine.generate(request)
+
+    template_kwargs = tokenizer.apply_chat_template.call_args.kwargs
+    assert template_kwargs["tools"] == tools

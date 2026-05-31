@@ -1,0 +1,11 @@
+# Override to allow egress for http_get / web_search tools.
+# Usage: MINICPM_NETWORK=1 ./scripts/run.sh
+#    or: docker compose -f docker-compose.yml -f docker-compose.network.yml up -d
+
+services:
+  minicpm:
+    network_mode: bridge
+    environment:
+      CHAT_NETWORK_ENABLED: "1"
+      # Optional: trusted SearXNG instance for broader web_search results
+      # CHAT_SEARX_BASE_URL: "https://your-searx-instance"

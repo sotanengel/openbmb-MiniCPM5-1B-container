@@ -23,6 +23,16 @@ AUTO_SYSTEM_PROMPT = (
     "if in English, respond in English; and match any other language the user uses."
 )
 
+TOOLS_USAGE_APPEND = (
+    "You may call zero or more of the available functions when needed. "
+    "If no tool is required, respond normally. "
+    "When calling a function, prefer XML: "
+    '<function name="TOOL_NAME"><param name="PARAM">value</param></function>. '
+    "JSON is also accepted: "
+    '{"name":"TOOL_NAME","arguments":{"PARAM":"value"}}. '
+    "After tool results appear in the conversation, answer the user concisely."
+)
+
 
 def validate_response_language(value: str) -> str:
     normalized = value.strip().lower()
@@ -32,11 +42,17 @@ def validate_response_language(value: str) -> str:
     return normalized
 
 
-def build_system_message(response_language: str) -> dict[str, str] | None:
+def build_system_message(
+    response_language: str,
+    *,
+    enabled_tools: tuple[str, ...] = (),
+) -> dict[str, str] | None:
     language = validate_response_language(response_language)
     if language == RESPONSE_LANGUAGE_AUTO:
         content = AUTO_SYSTEM_PROMPT
     else:
         language_name = LANGUAGE_NAMES[language]
         content = f"You are a helpful assistant. You must always respond in {language_name}."
+    if enabled_tools:
+        content = f"{content} {TOOLS_USAGE_APPEND}"
     return {"role": "system", "content": content}

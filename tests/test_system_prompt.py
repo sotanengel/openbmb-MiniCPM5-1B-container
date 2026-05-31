@@ -38,6 +38,12 @@ def test_build_system_message_en_instructs_english() -> None:
     assert "English" in message["content"]
 
 
+def test_build_system_message_with_tools_appends_xml_instructions() -> None:
+    message = build_system_message("en", enabled_tools=("calculate",))
+    assert message is not None
+    assert "<function name=" in message["content"]
+
+
 def test_validate_response_language_accepts_supported_codes() -> None:
     for code in SUPPORTED_RESPONSE_LANGUAGES:
         assert validate_response_language(code) == code

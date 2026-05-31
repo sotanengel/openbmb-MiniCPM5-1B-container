@@ -8,6 +8,7 @@
 - モデル推論プロセス（`model` ユーザー）と対話 CLI（`chat` ユーザー）を分離
 - Unix ソケット経由の JSON プロトコル（HTTP/API サーバーなし）
 - パスワード認証後のみ CLI 対話を開始
+- オプションで [MiniCPM5 ツール呼び出し](https://huggingface.co/openbmb/MiniCPM5-1B)（ホワイトリストのみ、`--tools` で指定）
 
 ## 前提
 
@@ -42,6 +43,33 @@ CHAT_PASSWORD='your-secret' ./scripts/build.sh
 |------|------|
 | `response_language` | 応答言語。`auto`（デフォルト）でユーザー入力言語に追従。`ja` / `en` 等で固定も可 |
 | 環境変数 `CHAT_RESPONSE_LANGUAGE` | ログイン時プロンプトのデフォルト値（例: `ja`） |
+| `enabled_tools` | 有効ツール ID（カンマ区切り）。省略時は `none`（ツール無効） |
+| 環境変数 `CHAT_TOOLS` | ログイン引数 `--tools` 未指定時のデフォルト（例: `calculate,count_text`） |
+
+### ツール（`--tools`）
+
+デフォルトではツールは無効です。ログイン時に有効化します。
+
+```bash
+# ローカル安全ツールのみ（オフラインのまま）
+./scripts/run.sh -- --tools calculate,current_datetime
+
+# HTTP ツール（GET のみ）— ネットワーク override が必要
+./scripts/run.sh --network -- --tools http_get,web_search
+```
+
+| ID | 種別 | 説明 |
+|----|------|------|
+| `calculate` | ローカル | 安全な四則演算式の評価 |
+| `current_datetime` | ローカル | UTC 現在時刻（ISO 8601） |
+| `count_text` | ローカル | 文字数・単語数・行数 |
+| `convert_units` | ローカル | 長さ・質量・温度・バイト換算 |
+| `http_get` | ネットワーク | URL を **GET のみ**で取得（SSRF 対策あり） |
+| `web_search` | ネットワーク | Wikipedia + DuckDuckGo Instant Answer（**GET JSON**）。任意で `CHAT_SEARX_BASE_URL` に SearXNG |
+
+`web_search` は HTML スクレイピングを使わず、Docker から CAPTCHA なしで使える JSON API のみ利用します。一般 Web 全文検索が必要な場合は、信頼できる自前 SearXNG を `CHAT_SEARX_BASE_URL`（例: `https://searx.example.com`）で指定してください。
+
+思考モードはログイン時に **Hybrid（auto）固定** です。`apply_chat_template` へ `enable_thinking` を渡さず、公式 MiniCPM5-1B と同様にモデルが思考の要否を判断します。運用者向けに `CHAT_ENABLE_THINKING=0|1` で上書きできます。`web_search` では `max_new_tokens` を 256 程度にすると要約しやすくなります。パーサーは XML に加え `{"name":"...","arguments":{...}}` 形式の JSON も受け付けます。
 
 | コマンド | 説明 |
 |---------|------|
@@ -83,17 +111,20 @@ pre-commit run --all-files
 ### 推論の制限
 
 - `trust_remote_code=False`（任意コード実行を禁止）
-- tool calling 無効
+- ツールは **ホワイトリストのみ**（デフォルト無効、`--tools` で明示有効化）
+- MiniCPM5 の `<function>` / `<param>` はトークナイザ上の special token のため、推論デコードでは `skip_special_tokens=False` が必須
+- ツール実行は **GET のみ**・SSRF ブロック・レスポンスサイズ上限（HTTP ツール）
 - メッセージ数・文字数・ `max_new_tokens` に上限
 - 平文パスワードはイメージに含めず、bcrypt ハッシュのみ埋め込み
 
 ### セキュリティチェックリスト
 
-- [x] 実行時ネットワーク遮断（`network_mode: none`）
+- [x] デフォルトは実行時ネットワーク遮断（`network_mode: none`）
+- [x] HTTP ツールは `docker-compose.network.yml` / `--network` で明示的に egress を許可
 - [x] `chat` ユーザーは `/models` を読めない（`chmod 750`, `model` 所有）
 - [x] root FS read-only
-- [x] HTTP リスナーなし
-- [x] tool calling / remote code 無効
+- [x] HTTP リスナーなし（外向きクライアントのみ、任意）
+- [x] ツール名ホワイトリスト・ラウンド上限・`trust_remote_code=False`
 - [x] 平文パスワードを git / イメージに含めない
 
 ## アーキテクチャ

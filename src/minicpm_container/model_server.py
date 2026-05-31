@@ -8,6 +8,7 @@ import socket
 import sys
 from pathlib import Path
 
+from minicpm_container.generation_decode import decode_generated_text
 from minicpm_container.protocol import (
     DEFAULT_SOCKET_PATH,
     ChatRequest,
@@ -49,13 +50,18 @@ class ModelEngine:
             return ChatResponse(content="", error="model not loaded")
 
         try:
+            template_kwargs: dict[str, object] = {}
+            if request.tools:
+                template_kwargs["tools"] = request.tools
+            if request.enable_thinking is not None:
+                template_kwargs["enable_thinking"] = request.enable_thinking
             inputs = self._tokenizer.apply_chat_template(
                 request.messages,
                 tokenize=True,
                 add_generation_prompt=True,
-                enable_thinking=request.enable_thinking,
                 return_dict=True,
                 return_tensors="pt",
+                **template_kwargs,
             )
             inputs = inputs.to(self._model.device)
             outputs = self._model.generate(
@@ -67,8 +73,8 @@ class ModelEngine:
             )
             input_length = inputs["input_ids"].shape[-1]
             generated = outputs[0][input_length:]
-            content = self._tokenizer.decode(generated, skip_special_tokens=True)
-            return ChatResponse(content=content.strip())
+            content = decode_generated_text(self._tokenizer, generated)
+            return ChatResponse(content=content)
         except Exception as exc:  # noqa: BLE001 - return safe error to client
             logger.exception("Generation failed")
             return ChatResponse(content="", error=str(exc))

@@ -61,6 +61,7 @@ def format_generation_settings_help() -> str:
         "",
         "  max_new_tokens — 1回の応答で生成する最大トークン数",
         f"    デフォルト: {DEFAULT_MAX_NEW_TOKENS}  有効範囲: 1〜{MAX_NEW_TOKENS}",
+        "    プロンプトが長い場合、残りコンテキストまで自動調整されます",
         "",
         "  thinking_mode — Hybrid 思考（固定）",
         "    モデルが思考ブロックの要否を判断（公式 MiniCPM5 と同様）",

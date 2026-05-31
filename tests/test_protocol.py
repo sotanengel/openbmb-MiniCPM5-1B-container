@@ -8,6 +8,7 @@ from minicpm_container.protocol import (
     DEFAULT_DO_SAMPLE,
     DEFAULT_TEMPERATURE,
     DEFAULT_TOP_P,
+    MAX_NEW_TOKENS,
     ChatRequest,
     ChatResponse,
     ConversationState,
@@ -49,10 +50,19 @@ def test_chat_request_rejects_oversized_content() -> None:
         ChatRequest.from_dict(payload)
 
 
+def test_chat_request_accepts_max_new_tokens_at_model_limit() -> None:
+    payload = {
+        "messages": [{"role": "user", "content": "hi"}],
+        "max_new_tokens": MAX_NEW_TOKENS,
+    }
+    request = ChatRequest.from_dict(payload)
+    assert request.max_new_tokens == MAX_NEW_TOKENS
+
+
 def test_chat_request_rejects_excessive_max_new_tokens() -> None:
     payload = {
         "messages": [{"role": "user", "content": "hi"}],
-        "max_new_tokens": 9999,
+        "max_new_tokens": MAX_NEW_TOKENS + 1,
     }
     with pytest.raises(ProtocolError, match="max_new_tokens exceeds"):
         ChatRequest.from_dict(payload)

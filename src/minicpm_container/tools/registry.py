@@ -20,6 +20,7 @@ ToolHandler = Callable[[dict[str, Any]], str]
 NETWORK_TOOL_IDS = frozenset({"http_get", "web_search"})
 LOCAL_TOOL_IDS = frozenset({"calculate", "current_datetime", "count_text", "convert_units"})
 ALL_TOOL_IDS = frozenset(NETWORK_TOOL_IDS | LOCAL_TOOL_IDS)
+DEFAULT_ENABLED_TOOLS: tuple[str, ...] = tuple(sorted(ALL_TOOL_IDS))
 
 
 @dataclass(frozen=True)
@@ -154,6 +155,13 @@ def get_tool_definition(tool_id: str) -> ToolDefinition | None:
     return _TOOL_DEFINITIONS.get(tool_id)
 
 
+def _validate_tool_id(tool_id: str) -> str:
+    if tool_id not in ALL_TOOL_IDS:
+        supported = ", ".join(sorted(ALL_TOOL_IDS))
+        raise ValueError(f"unknown tool id {tool_id!r}; supported: {supported}")
+    return tool_id
+
+
 def parse_enabled_tools(raw: str | None) -> tuple[str, ...]:
     if raw is None:
         return ()
@@ -165,12 +173,41 @@ def parse_enabled_tools(raw: str | None) -> tuple[str, ...]:
         tool_id = part.strip().lower()
         if not tool_id:
             continue
-        if tool_id not in ALL_TOOL_IDS:
-            supported = ", ".join(sorted(ALL_TOOL_IDS))
-            raise ValueError(f"unknown tool id {tool_id!r}; supported: {supported}")
+        _validate_tool_id(tool_id)
         if tool_id not in ids:
             ids.append(tool_id)
     return tuple(ids)
+
+
+def resolve_tool_selection(raw: str | None) -> tuple[str, ...]:
+    if raw is None:
+        return DEFAULT_ENABLED_TOOLS
+    normalized = raw.strip().lower()
+    if not normalized:
+        return DEFAULT_ENABLED_TOOLS
+    if normalized == "none":
+        return ()
+
+    positive_ids: list[str] = []
+    negative_ids: list[str] = []
+    for part in normalized.split(","):
+        token = part.strip().lower()
+        if not token:
+            continue
+        if token.startswith("-"):
+            tool_id = _validate_tool_id(token[1:])
+            if tool_id not in negative_ids:
+                negative_ids.append(tool_id)
+        else:
+            tool_id = _validate_tool_id(token)
+            if tool_id not in positive_ids:
+                positive_ids.append(tool_id)
+
+    base = tuple(positive_ids) if positive_ids else DEFAULT_ENABLED_TOOLS
+    if not base:
+        return ()
+    disabled = set(negative_ids)
+    return tuple(tool_id for tool_id in base if tool_id not in disabled)
 
 
 def get_tool_schemas(enabled_tools: tuple[str, ...]) -> list[dict[str, Any]] | None:
@@ -184,7 +221,7 @@ def get_tool_schemas(enabled_tools: tuple[str, ...]) -> list[dict[str, Any]] | N
 
 
 def format_tools_help() -> str:
-    lines = ["Available tools (enable with --tools id1,id2):"]
+    lines = ["Available tools (--tools id1,id2 to allow, -id to disable, none to disable all):"]
     for tool_id in sorted(ALL_TOOL_IDS):
         schema = _TOOL_DEFINITIONS[tool_id].schema
         description = schema["function"]["description"]

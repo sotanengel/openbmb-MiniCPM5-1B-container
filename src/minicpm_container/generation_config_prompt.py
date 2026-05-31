@@ -27,7 +27,12 @@ from minicpm_container.system_prompt import (
     validate_response_language,
 )
 from minicpm_container.tools.limits import MAX_MESSAGE_CHARS
-from minicpm_container.tools.registry import ALL_TOOL_IDS, format_tools_help, parse_enabled_tools
+from minicpm_container.tools.registry import (
+    ALL_TOOL_IDS,
+    DEFAULT_ENABLED_TOOLS,
+    format_tools_help,
+    resolve_tool_selection,
+)
 
 
 def _bool_default_label(value: bool) -> str:
@@ -64,8 +69,11 @@ def format_generation_settings_help() -> str:
         "",
         f"  （参考）会話上限: メッセージ数 {MAX_MESSAGES}、1メッセージ {MAX_MESSAGE_CHARS} 文字",
         "",
-        "  enabled_tools — 有効化するツール ID（カンマ区切り、none で無効）",
-        f"    デフォルト: none  利用可能: {', '.join(sorted(ALL_TOOL_IDS))}",
+        "  enabled_tools — ツール ID（カンマ区切り、none で全無効、-id で禁止）",
+        (
+            f"    デフォルト: {','.join(DEFAULT_ENABLED_TOOLS)}  "
+            f"利用可能: {', '.join(sorted(ALL_TOOL_IDS))}"
+        ),
         "",
     ]
     return "\n".join(lines)
@@ -155,7 +163,7 @@ def prompt_enabled_tools(default: tuple[str, ...]) -> tuple[str, ...]:
         if not raw.strip():
             return default
         try:
-            return parse_enabled_tools(raw)
+            return resolve_tool_selection(raw)
         except ValueError as exc:
             print(f"  {exc}")
             print(f"  利用可能: {supported}")
@@ -170,7 +178,7 @@ def prompt_generation_config(
     print_generation_settings_help()
     default_response_language = _load_default_response_language()
     if enabled_tools is None:
-        resolved_tools: tuple[str, ...] = ()
+        resolved_tools = DEFAULT_ENABLED_TOOLS
     else:
         resolved_tools = enabled_tools
     if prompt_tools:

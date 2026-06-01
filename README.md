@@ -1,6 +1,6 @@
 # openbmb-MiniCPM5-1B-container
 
-[openbmb/MiniCPM5-1B](https://huggingface.co/openbmb/MiniCPM5-1B) をローカル CPU 環境で動かし、ネットワーク遮断・最小権限の Docker コンテナ内で CLI 対話するアプリケーションです。
+[openbmb/MiniCPM5-1B](https://huggingface.co/openbmb/MiniCPM5-1B) をローカルで動かし、ネットワーク遮断・最小権限の Docker コンテナ内で CLI 対話するアプリケーションです。ホストに NVIDIA GPU がある場合はビルド時に自動検出し、GPU 推論用イメージを生成します。
 
 ## 機能
 
@@ -9,12 +9,14 @@
 - Unix ソケット経由の JSON プロトコル（HTTP/API サーバーなし）
 - パスワード認証後のみ CLI 対話を開始
 - オプションで [MiniCPM5 ツール呼び出し](https://huggingface.co/openbmb/MiniCPM5-1B)（ホワイトリストのみ、デフォルト全有効、`--tools` で調整）
+- ビルド時に `nvidia-smi` が使えるホストでは CUDA 入りイメージを自動生成し、実行時は GPU で推論（応答が速い）
 
 ## 前提
 
 - Docker / Docker Compose
 - ディスク空き 約 5GB 以上（モデル + イメージ）
-- CPU 推論（GPU 不要、応答は遅め）
+- **CPU**: GPU 不要（応答は遅め）。macOS の Docker では通常こちら
+- **GPU（任意）**: NVIDIA ドライバ + [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)。ビルドホストで `nvidia-smi` が成功すると GPU イメージが選ばれる
 
 ## クイックスタート
 
@@ -44,6 +46,23 @@ CHAT_PASSWORD='your-secret' ./scripts/build.sh
 # 任意の保存先
 MODEL_DIR=/data/MiniCPM5-1B CHAT_PASSWORD='your-secret' ./scripts/build.sh
 ```
+
+### GPU 推論（NVIDIA）
+
+ホストで `nvidia-smi` が成功する場合、`./scripts/build.sh` は `runtime-gpu` ターゲットで CUDA 12.4 + PyTorch (cu124) 入りイメージをビルドし、ラベル `minicpm.inference=gpu` を付与します。`./scripts/run.sh` はそのラベルを見て `docker-compose.gpu.yml` を自動マージし、コンテナに GPU を割り当てます。
+
+```bash
+# GPU なしマシンから GPU サーバー向けイメージを明示ビルド
+MINICPM_GPU=1 CHAT_PASSWORD='your-secret' ./scripts/build.sh
+
+# 実行時に GPU compose を明示（イメージラベルと併用可）
+MINICPM_GPU=1 ./scripts/run.sh
+
+# CPU イメージで誤って GPU compose を付けない
+MINICPM_GPU=0 ./scripts/run.sh
+```
+
+起動後、`docker logs minicpm5-1b-chat` に `CUDA available` が出ていれば GPU 推論です。GPU 時もオフライン・プロセス分離・`network_mode: none`（デフォルト）は CPU 版と同じです。
 
 コード変更後にイメージを作り直さず反映する場合:
 
@@ -155,11 +174,11 @@ pre-commit run --all-files
 ## アーキテクチャ
 
 ```
-Host: scripts/build.sh → prepare_model → docker build (local MODEL_DIR or HF download)
-Host: scripts/run.sh   → docker compose up → docker exec chat-login
+Host: scripts/build.sh → prepare_model → docker build (CPU or GPU target from nvidia-smi)
+Host: scripts/run.sh   → docker compose [+ gpu.yml] up → docker exec chat-login
 
 Container (offline):
-  entrypoint → model_server (user: model) → /run/model.sock
+  entrypoint → model_server (user: model, device_map auto on GPU) → /run/model.sock
   chat-login → chat_cli (user: chat) → Unix socket
 ```
 

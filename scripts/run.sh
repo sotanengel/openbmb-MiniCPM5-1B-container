@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+IMAGE_NAME="${IMAGE_NAME:-minicpm5-1b-chat:latest}"
 CONTAINER_NAME="${CONTAINER_NAME:-minicpm5-1b-chat}"
 
 cd "${ROOT_DIR}"
@@ -31,14 +32,27 @@ if [ "${MINICPM_NETWORK:-0}" = "1" ]; then
   USE_NETWORK=1
 fi
 
+USE_GPU_COMPOSE=0
+if [ "${MINICPM_GPU:-}" = "0" ]; then
+  USE_GPU_COMPOSE=0
+elif [ "${MINICPM_GPU:-}" = "1" ]; then
+  USE_GPU_COMPOSE=1
+elif docker image inspect "${IMAGE_NAME:-minicpm5-1b-chat:latest}" --format '{{index .Config.Labels "minicpm.inference"}}' 2>/dev/null | grep -qx 'gpu'; then
+  USE_GPU_COMPOSE=1
+fi
+
 COMPOSE_FILES=(-f docker-compose.yml)
+if [ "${USE_GPU_COMPOSE}" -eq 1 ]; then
+  COMPOSE_FILES+=(-f docker-compose.gpu.yml)
+  echo "Starting with NVIDIA GPU inference enabled."
+fi
 if [ "${USE_NETWORK}" -eq 1 ]; then
   COMPOSE_FILES+=(-f docker-compose.network.yml)
   echo "Starting with network egress enabled (http_get / web_search)."
 fi
 
-if ! docker image inspect minicpm5-1b-chat:latest >/dev/null 2>&1; then
-  echo "Image minicpm5-1b-chat:latest not found. Run ./scripts/build.sh first." >&2
+if ! docker image inspect "${IMAGE_NAME}" >/dev/null 2>&1; then
+  echo "Image ${IMAGE_NAME} not found. Run ./scripts/build.sh first." >&2
   exit 1
 fi
 

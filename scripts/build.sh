@@ -34,7 +34,7 @@ VENV="${ROOT_DIR}/.venv"
 if [[ ! -x "${VENV}/bin/python" ]]; then
   python3 -m venv "${VENV}"
 fi
-"${VENV}/bin/pip" install -q bcrypt huggingface_hub
+"${VENV}/bin/pip" install -q -e . bcrypt huggingface_hub
 
 CHAT_PASSWORD_HASH="$(
   CHAT_PASSWORD="${CHAT_PASSWORD}" "${VENV}/bin/python" - <<'PY'
@@ -52,15 +52,30 @@ USE_LOCAL_MODEL=0
 MODEL_BUILD_CONTEXT="${EMPTY_MODEL_CONTEXT}"
 mkdir -p "${EMPTY_MODEL_CONTEXT}"
 
+BUILD_TARGET="runtime"
+INFERENCE_LABEL="cpu"
+
+if [[ "${MINICPM_GPU:-}" == "1" ]]; then
+  BUILD_TARGET="runtime-gpu"
+  INFERENCE_LABEL="gpu"
+  echo "Building GPU-enabled image (MINICPM_GPU=1)..."
+elif "${VENV}/bin/python" -c "from minicpm_container.inference_device import host_has_nvidia_gpu; raise SystemExit(0 if host_has_nvidia_gpu() else 1)" 2>/dev/null; then
+  BUILD_TARGET="runtime-gpu"
+  INFERENCE_LABEL="gpu"
+  echo "Building GPU-enabled image (NVIDIA GPU detected on host)..."
+fi
+
 if "${VENV}/bin/python" -m minicpm_container.model_cache check "${MODEL_DIR}"; then
   USE_LOCAL_MODEL=1
   MODEL_BUILD_CONTEXT="${MODEL_DIR}"
-  echo "Building ${IMAGE_NAME} using local model at ${MODEL_DIR} (skipping download)..."
+  echo "Using local model at ${MODEL_DIR} (skipping download)..."
 else
-  echo "Building ${IMAGE_NAME} (model download may take several minutes)..."
+  echo "Model download during build may take several minutes..."
 fi
 
 BUILD_ARGS=(
+  --target "${BUILD_TARGET}"
+  --label "minicpm.inference=${INFERENCE_LABEL}"
   --build-arg "CHAT_PASSWORD_HASH=${CHAT_PASSWORD_HASH}"
   --build-arg "USE_LOCAL_MODEL=${USE_LOCAL_MODEL}"
   --build-context "modeldir=${MODEL_BUILD_CONTEXT}"
@@ -83,4 +98,4 @@ if [[ "${USE_LOCAL_MODEL}" == "0" ]]; then
   fi
 fi
 
-echo "Build complete: ${IMAGE_NAME}"
+echo "Build complete: ${IMAGE_NAME} (inference=${INFERENCE_LABEL}, target=${BUILD_TARGET})"

@@ -1,0 +1,10 @@
+# Override to enable NVIDIA GPU inference (requires GPU-built image and Container Toolkit).
+# Applied automatically by ./scripts/run.sh when the image label minicpm.inference=gpu is set.
+# Manual: MINICPM_GPU=1 ./scripts/run.sh
+#    or: docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+
+services:
+  minicpm:
+    gpus: all
+    environment:
+      MODEL_USE_GPU: "1"

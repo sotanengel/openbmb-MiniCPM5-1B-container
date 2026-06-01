@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 
 from minicpm_container.generation_decode import decode_generated_text
+from minicpm_container.inference_device import effective_device_map, resolve_device_map
 from minicpm_container.model_limits import (
     effective_max_new_tokens,
     resolve_max_position_embeddings,
@@ -25,7 +26,18 @@ class ModelEngine:
     def load(self) -> None:
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
-        logger.info("Loading model from %s", self.model_path)
+        requested_device_map = resolve_device_map()
+        device_map = effective_device_map(requested_device_map)
+        if device_map != requested_device_map:
+            logger.warning(
+                "Requested device_map=%s but CUDA is unavailable; using cpu",
+                requested_device_map,
+            )
+        logger.info(
+            "Loading model from %s (device_map=%s)",
+            self.model_path,
+            device_map,
+        )
         self._tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
             trust_remote_code=False,
@@ -33,7 +45,7 @@ class ModelEngine:
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             torch_dtype="auto",
-            device_map="cpu",
+            device_map=device_map,
             trust_remote_code=False,
         )
         config_max = getattr(self._model.config, "max_position_embeddings", None)

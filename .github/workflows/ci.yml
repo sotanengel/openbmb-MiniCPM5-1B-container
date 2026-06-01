@@ -30,4 +30,5 @@ jobs:
         run: |
           if [ -f docker-compose.yml ]; then
             docker compose config > /dev/null
+            docker compose -f docker-compose.yml -f docker-compose.gpu.yml config > /dev/null
           fi

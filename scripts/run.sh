@@ -68,6 +68,12 @@ if [ "${USE_NETWORK}" -eq 1 ]; then
   EXEC_ENV+=(-e CHAT_NETWORK_ENABLED=1)
 fi
 
-exec docker exec -u chat -it \
-  "${EXEC_ENV[@]}" \
-  "${CONTAINER_NAME}" chat-login "${CHAT_LOGIN_ARGS[@]}"
+if ((${#CHAT_LOGIN_ARGS[@]} > 0)); then
+  exec docker exec -u chat -it \
+    "${EXEC_ENV[@]}" \
+    "${CONTAINER_NAME}" chat-login "${CHAT_LOGIN_ARGS[@]}"
+else
+  exec docker exec -u chat -it \
+    "${EXEC_ENV[@]}" \
+    "${CONTAINER_NAME}" chat-login
+fi

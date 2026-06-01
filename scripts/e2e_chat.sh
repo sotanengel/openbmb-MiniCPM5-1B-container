@@ -29,7 +29,7 @@ container = os.environ["CONTAINER_NAME"]
 network = os.environ.get("NETWORK") == "1"
 max_tokens = os.environ.get("MAX_NEW_TOKENS", "").strip()
 if not max_tokens:
-    max_tokens = "256" if tools == "web_search" else "128"
+    max_tokens = "1000"
 
 stdin = "\n".join(
     [

@@ -97,7 +97,7 @@ def test_generation_config_to_chat_request_prepends_system_for_empty_history() -
 def test_generation_config_summary() -> None:
     config = GenerationConfig.defaults()
     summary = config.summary()
-    assert "max_new_tokens=128" in summary
+    assert "max_new_tokens=1000" in summary
     assert "thinking_mode=hybrid" in summary
     assert "response_language=auto" in summary
 

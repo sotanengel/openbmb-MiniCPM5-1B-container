@@ -32,20 +32,14 @@ RUN --mount=type=bind,from=modeldir,source=.,target=/mnt/model,readonly \
       cp -a /mnt/model/. /models/MiniCPM5-1B/; \
     fi
 
-RUN if [ ! -f /models/MiniCPM5-1B/config.json ]; then \
-      MODEL_ID="${MODEL_ID}" /opt/venv/bin/python - <<'PY'
-import os
-
-from huggingface_hub import snapshot_download
-
-snapshot_download(
-    repo_id=os.environ["MODEL_ID"],
-    local_dir="/models/MiniCPM5-1B",
-)
-PY
-    else \
-      echo "Using model from MODEL_DIR (skipping download)"; \
-    fi
+RUN <<EOF
+set -eu
+if [ -f /models/MiniCPM5-1B/config.json ]; then
+  echo "Using model from MODEL_DIR (skipping download)"
+else
+  MODEL_ID="${MODEL_ID}" /opt/venv/bin/python -c "import os; from huggingface_hub import snapshot_download; snapshot_download(repo_id=os.environ['MODEL_ID'], local_dir='/models/MiniCPM5-1B')"
+fi
+EOF
 
 
 FROM python:${PYTHON_VERSION}-slim AS runtime

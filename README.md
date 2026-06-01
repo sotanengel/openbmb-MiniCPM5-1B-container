@@ -29,6 +29,22 @@ CHAT_PASSWORD='your-secret' ./scripts/build.sh
 ./scripts/stop.sh
 ```
 
+ビルド時、ローカルにモデルがあれば自動で `.models/MiniCPM5-1B/` へ配置し Hugging Face からの再 DL をスキップします。配置元の優先順位は次のとおりです。
+
+1. 既に完全な `.models/MiniCPM5-1B/`（または `MODEL_DIR` で指定したパス）
+2. Hugging Face キャッシュ（`~/.cache/huggingface/hub/...`）
+3. 既存の Docker イメージ `minicpm5-1b-chat:latest`
+
+初回ビルドで Docker 内 DL した場合、成功後にモデルを `.models/MiniCPM5-1B/` へ保存するため、2 回目以降のビルドは高速になります。
+
+```bash
+# 配置のみ確認・実行
+./scripts/prepare_model.sh
+
+# 任意の保存先
+MODEL_DIR=/data/MiniCPM5-1B CHAT_PASSWORD='your-secret' ./scripts/build.sh
+```
+
 コード変更後にイメージを作り直さず反映する場合:
 
 ```bash
@@ -139,7 +155,7 @@ pre-commit run --all-files
 ## アーキテクチャ
 
 ```
-Host: scripts/build.sh → docker build (HF download)
+Host: scripts/build.sh → prepare_model → docker build (local MODEL_DIR or HF download)
 Host: scripts/run.sh   → docker compose up → docker exec chat-login
 
 Container (offline):

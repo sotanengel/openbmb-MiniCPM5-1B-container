@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1.4
 
 ARG PYTHON_VERSION=3.12
 
@@ -22,15 +22,24 @@ RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install ".[inference]" \
     && /opt/venv/bin/pip install huggingface_hub
 
+ARG USE_LOCAL_MODEL=0
 ARG MODEL_ID=openbmb/MiniCPM5-1B
-RUN /opt/venv/bin/python - <<'PY'
-from huggingface_hub import snapshot_download
 
-snapshot_download(
-    repo_id="openbmb/MiniCPM5-1B",
-    local_dir="/models/MiniCPM5-1B",
-)
-PY
+RUN mkdir -p /models/MiniCPM5-1B
+
+RUN --mount=type=bind,from=modeldir,source=.,target=/mnt/model,readonly \
+    if [ "${USE_LOCAL_MODEL}" = "1" ]; then \
+      cp -a /mnt/model/. /models/MiniCPM5-1B/; \
+    fi
+
+RUN <<EOF
+set -eu
+if [ -f /models/MiniCPM5-1B/config.json ]; then
+  echo "Using model from MODEL_DIR (skipping download)"
+else
+  MODEL_ID="${MODEL_ID}" /opt/venv/bin/python -c "import os; from huggingface_hub import snapshot_download; snapshot_download(repo_id=os.environ['MODEL_ID'], local_dir='/models/MiniCPM5-1B')"
+fi
+EOF
 
 
 FROM python:${PYTHON_VERSION}-slim AS runtime

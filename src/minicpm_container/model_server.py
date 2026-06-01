@@ -8,6 +8,7 @@ import socket
 import sys
 from pathlib import Path
 
+from minicpm_container.inference_device import log_runtime_device_info
 from minicpm_container.model_engine import ModelEngine
 from minicpm_container.protocol import (
     DEFAULT_SOCKET_PATH,
@@ -89,6 +90,7 @@ def main() -> None:
         logger.error("Model path does not exist: %s", model_path)
         raise SystemExit(1)
 
+    log_runtime_device_info(logger)
     engine = ModelEngine(str(model_path))
     try:
         serve_forever(engine)
